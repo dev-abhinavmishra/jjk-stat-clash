@@ -168,27 +168,36 @@ export default function BotDraft() {
       return () => clearTimeout(skip);
     }
 
-    if (activePlayer === 1 && difficulty) {
-      const delay = 1000 + Math.random() * 2000;
-      const botTimer = setTimeout(() => {
-        executeBotTurnRef.current();
-      }, delay);
-      return () => clearTimeout(botTimer);
-    }
-
+    // The countdown ticks on every player's turn; hitting 0 auto-picks for
+    // whoever is active (see the expiry effect below), so a bot turn that
+    // produces no action still resolves instead of hanging.
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setTimeout(() => executeAutoTurnRef.current(0), 0);
-          return TURN_TIME_SECONDS;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
 
-    return () => clearInterval(timer);
+    let botTimer: ReturnType<typeof setTimeout> | undefined;
+    if (activePlayer === 1 && difficulty) {
+      const delay = 1000 + Math.random() * 2000;
+      botTimer = setTimeout(() => {
+        executeBotTurnRef.current();
+      }, delay);
+    }
+
+    return () => {
+      clearInterval(timer);
+      if (botTimer) clearTimeout(botTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftPhase, activePlayer, allSelected, players, activeRollingStat]);
+
+  // Turn expiry auto-pick. This must NOT live inside the setTimeLeft updater:
+  // StrictMode double-invokes updaters in dev, which fired the auto-turn
+  // twice — two human picks plus two passTurns (net zero) starved the bot.
+  useEffect(() => {
+    if (draftPhase !== 'drafting' || allSelected || timeLeft > 0) return;
+    executeAutoTurnRef.current(activePlayer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, draftPhase, allSelected, activePlayer]);
 
   const handleSaveDraft = () => setIsSaveConfirmOpen(true);
 
@@ -219,6 +228,10 @@ export default function BotDraft() {
 
   const executeBotTurnRef = useRef<() => void>(() => {});
   const executeAutoTurnRef = useRef<(pIndex: number) => void>(() => {});
+  // Deferred callbacks read this instead of the stale render-time value so a
+  // turn that already advanced can't be finished/passed a second time.
+  const activePlayerRef = useRef(activePlayer);
+  activePlayerRef.current = activePlayer;
 
   const executeBotTurn = () => {
     if (!difficulty) return;
@@ -312,7 +325,9 @@ export default function BotDraft() {
           setPlayers(newPlayers);
 
           if (!activeRollingStat) setActiveRollingStat(statToRoll);
-          setTimeout(() => handleFinishGambleTurn(), 500);
+          setTimeout(() => {
+            if (activePlayerRef.current === 1) handleFinishGambleTurn();
+          }, 500);
         } else {
           passTurn();
         }
@@ -445,41 +460,29 @@ export default function BotDraft() {
         handleFinishGambleTurn();
         return;
       }
-      const emptyStats = statsList.filter((stat) => !players[pIndex][stat]);
-      if (emptyStats.length === 0) {
+      const rollableStats = getRollableStats(pIndex);
+      if (rollableStats.length === 0) {
         handleFinishGambleTurn();
         return;
       }
-      const randomStat = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+      const randomStat = rollableStats[Math.floor(Math.random() * rollableStats.length)];
       handleGambleRoll(pIndex, randomStat, false);
       // After auto-roll, immediately finish turn
-      setTimeout(() => handleFinishGambleTurn(), 500);
+      setTimeout(() => {
+        if (activePlayerRef.current === pIndex) handleFinishGambleTurn();
+      }, 500);
       return;
     }
 
-    const takenIds = new Set<string>();
-    players.forEach((draft) => {
-      Object.values(draft).forEach((id) => {
-        if (typeof id === 'string') takenIds.add(id);
-      });
-    });
-    const globalBans = bans.flat().filter(Boolean);
-
-    const emptyStats = statsList.filter((stat) => !players[pIndex][stat]);
-    if (emptyStats.length === 0) {
+    const fillableStats = getFillableStats(pIndex);
+    if (fillableStats.length === 0) {
       passTurn();
       return;
     }
 
-    const randomStat = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+    const randomStat = fillableStats[Math.floor(Math.random() * fillableStats.length)];
     const category = statCategoryMap[randomStat] || 'character';
-
-    const available = characters.filter((entity) => {
-      if (entity.category !== category) return false;
-      if (globalBans.includes(entity.id)) return false;
-      if (entity.id !== 'binding-vow' && takenIds.has(entity.id)) return false;
-      return true;
-    });
+    const available = getAvailableEntities(null, category, players[pIndex]);
 
     if (available.length > 0) {
       const pick = available[Math.floor(Math.random() * available.length)];

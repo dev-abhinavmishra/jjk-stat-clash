@@ -32,6 +32,8 @@ const changelogData = [
       'Fixed bot gamble turns hanging — the bot now skips stats with empty roll pools instead of retrying forever, and dead turns auto-skip for both players',
       'Fixed gamble rolls in vs-bot mode ignoring prerequisites — rolled entities are no longer silently discarded mid-turn',
       'Added an End Turn button to Cursed Lottery so a player with nothing to roll is never trapped in their turn',
+      'Fixed bot turns starving out mid-draft — a StrictMode double-invoked timer fired the auto-pick twice per human expiry, so the bot never held a turn',
+      'Turn countdown now runs during bot turns too, so any stuck turn auto-resolves instead of hanging the draft',
       'Updated build version display to v1.6.0',
     ],
   },
