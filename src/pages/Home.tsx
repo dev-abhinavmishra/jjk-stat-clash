@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ChangelogModal } from '../components/Changelog';
 import { HowToPlayTutorial } from '../components/HowToPlayTutorial';
+import { APP_VERSION } from '../utils/gameSettings';
 
 export default function Home() {
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -303,7 +304,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col items-center md:items-start">
             <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-[0.4em] mb-2">
-              Build: Production 1.6.0
+              Build: Production {APP_VERSION}
             </p>
             <p className="text-xs text-zinc-600 font-mono uppercase">
               © 2026 Jujutsu Intelligence Systems

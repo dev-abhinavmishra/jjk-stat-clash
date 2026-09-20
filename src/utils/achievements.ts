@@ -16,6 +16,7 @@ export interface AchievementContext {
   blackFlashCount: number;
   playerBlackFlashes: number;
   statRoundsWon: number;
+  statRoundsLost: number;
   winMargin: number;
   allSlotsFilled: boolean;
 }
@@ -71,7 +72,7 @@ export const achievements: Achievement[] = [
   {
     id: 'perfectionist',
     name: 'Perfectionist',
-    description: 'Win with all 11 stat slots filled',
+    description: 'Win with all stat slots filled',
     icon: '💎',
     check: (ctx) => ctx.hasWon && ctx.allSlotsFilled,
   },
@@ -107,9 +108,9 @@ export const achievements: Achievement[] = [
   {
     id: 'sweep',
     name: 'Perfect Sweep',
-    description: 'Win without losing a single round',
+    description: 'Win without losing a single stat round',
     icon: '🧹',
-    check: (ctx) => ctx.hasWon && ctx.roundWins.every((w) => w === 0),
+    check: (ctx) => ctx.hasWon && ctx.statRoundsLost === 0,
   },
   {
     id: 'overwhelming-force',

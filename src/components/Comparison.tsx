@@ -127,6 +127,9 @@ Try it yourself: https://jjk-stat-clash.vercel.app
           statRoundsWon: clashRounds.filter(
             (r) => r.winners.length === 1 && r.winners[0] === playerIdx
           ).length,
+          statRoundsLost: clashRounds.filter(
+            (r) => r.winners.length === 1 && r.winners[0] !== playerIdx
+          ).length,
           winMargin: winners.includes(playerIdx) ? topMargin : 0,
           allSlotsFilled,
         };

@@ -1,6 +1,16 @@
 import React from 'react';
-import { Github, Twitter, MessageSquare, FileText, HelpCircle, BookOpen, BarChart3, Trophy } from 'lucide-react';
+import {
+  Github,
+  Twitter,
+  MessageSquare,
+  FileText,
+  HelpCircle,
+  BookOpen,
+  BarChart3,
+  Trophy,
+} from 'lucide-react';
 import { motion } from 'motion/react';
+import { APP_VERSION } from '../utils/gameSettings';
 
 interface GameFooterProps {
   onChangelog: () => void;
@@ -11,7 +21,14 @@ interface GameFooterProps {
   onAchievements?: () => void;
 }
 
-export const GameFooter: React.FC<GameFooterProps> = ({ onChangelog, onHowToPlay, onFeedback, onArchives, onStats, onAchievements }) => {
+export const GameFooter: React.FC<GameFooterProps> = ({
+  onChangelog,
+  onHowToPlay,
+  onFeedback,
+  onArchives,
+  onStats,
+  onAchievements,
+}) => {
   return (
     <motion.footer
       initial={{ opacity: 0 }}
@@ -21,8 +38,12 @@ export const GameFooter: React.FC<GameFooterProps> = ({ onChangelog, onHowToPlay
     >
       <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="flex flex-col items-center md:items-start">
-          <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-[0.3em]">Build: Production 1.2.4</p>
-          <p className="text-[10px] text-zinc-600 font-mono uppercase mt-0.5">© 2026 Jujutsu Intelligence Systems</p>
+          <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-[0.3em]">
+            Build: Production {APP_VERSION}
+          </p>
+          <p className="text-[10px] text-zinc-600 font-mono uppercase mt-0.5">
+            © 2026 Jujutsu Intelligence Systems
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-2">
@@ -73,9 +94,18 @@ export const GameFooter: React.FC<GameFooterProps> = ({ onChangelog, onHowToPlay
             Changelog
           </button>
           <div className="flex items-center gap-2 border-l border-zinc-800 pl-3">
-            <Twitter size={13} className="text-zinc-500 hover:text-white cursor-pointer transition-colors" />
-            <Github size={13} className="text-zinc-500 hover:text-white cursor-pointer transition-colors" />
-            <MessageSquare size={13} className="text-zinc-500 hover:text-white cursor-pointer transition-colors" />
+            <Twitter
+              size={13}
+              className="text-zinc-500 hover:text-white cursor-pointer transition-colors"
+            />
+            <Github
+              size={13}
+              className="text-zinc-500 hover:text-white cursor-pointer transition-colors"
+            />
+            <MessageSquare
+              size={13}
+              className="text-zinc-500 hover:text-white cursor-pointer transition-colors"
+            />
           </div>
         </div>
       </div>

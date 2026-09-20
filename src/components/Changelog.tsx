@@ -19,6 +19,8 @@ const changelogData = [
       'New achievement: Photo Finish — win a clash by a margin of 25 points or fewer',
       'New achievement: Black Flash Adept — land 2+ Black Flashes on your own build',
       'Achievement engine now tracks per-player Black Flashes, stat round wins, and victory margin',
+      'Fixed Perfect Sweep achievement triggering on any first-match win — now requires zero lost stat rounds',
+      'Fixed stale build version labels and unified them under a shared APP_VERSION constant',
       'Updated build version display to v1.6.0',
     ],
   },
