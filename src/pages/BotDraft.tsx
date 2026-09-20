@@ -1010,6 +1010,7 @@ export default function BotDraft() {
                         draftMode={draftMode}
                         lockOnSelect={true}
                         gambleState={gambleStates[index]}
+                        gambleConfig={gambleConfig}
                         onGambleRoll={(stat, isLucky) => handleGambleRoll(index, stat, isLucky)}
                         isTurn={index === activePlayer}
                         activeRollingStat={index === activePlayer ? activeRollingStat : null}
@@ -1025,19 +1026,7 @@ export default function BotDraft() {
                     isActive={timerEnabled && draftPhase === 'drafting'}
                     duration={timerDuration}
                     onTimeUp={() => {
-                      if (activePlayer === 0) {
-                        const emptyStat = statsList.find((s) => players[0][s] === null);
-                        if (emptyStat) {
-                          const category = statCategoryMap[emptyStat] || 'character';
-                          const available = characters.filter(
-                            (e) =>
-                              e.category === category && !Object.values(players[0]).includes(e.id)
-                          );
-                          if (available.length > 0) {
-                            handleSelect(0, emptyStat, available[0].id);
-                          }
-                        }
-                      }
+                      if (activePlayer === 0) executeAutoTurnRef.current(0);
                     }}
                   />
                   <button

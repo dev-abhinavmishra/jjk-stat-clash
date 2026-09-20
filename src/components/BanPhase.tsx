@@ -80,8 +80,7 @@ export function BanPhase({
 }: BanPhaseProps) {
   const playerBans = (i: number) => bans[i] || [];
   const sealedBy = (i: number) => playerBans(i).slice(0, banCount).filter(Boolean).length;
-  const playerComplete = (i: number) =>
-    isReadOnly?.(i) || playerBans(i).slice(0, banCount).every(Boolean);
+  const playerComplete = (i: number) => isReadOnly?.(i) || sealedBy(i) >= banCount;
   const canBegin = players.every((_, i) => playerComplete(i));
 
   const totalSeals = players.length * banCount;
@@ -156,11 +155,11 @@ export function BanPhase({
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: pIndex * 0.08 }}
-              className={`bg-zinc-900/80 border ${complete ? accent.border : 'border-zinc-800'} rounded-2xl p-6 flex flex-col gap-4 w-full max-w-sm relative overflow-hidden transition-all duration-300 hover:z-50 focus-within:z-50 ${complete ? accent.glow : ''}`}
+              className={`bg-zinc-900/80 border ${complete ? accent.border : 'border-zinc-800'} rounded-2xl p-6 flex flex-col gap-4 w-full max-w-sm relative transition-all duration-300 hover:z-50 focus-within:z-50 ${complete ? accent.glow : ''}`}
             >
               {/* Player accent bar */}
               <div
-                className={`absolute top-0 left-0 w-full h-1 ${accent.bg} ${complete ? 'opacity-100' : 'opacity-30'} transition-opacity`}
+                className={`absolute top-0 left-0 w-full h-1 rounded-t-2xl ${accent.bg} ${complete ? 'opacity-100' : 'opacity-30'} transition-opacity`}
               />
 
               <div className="flex justify-between items-center gap-2 mt-1">
