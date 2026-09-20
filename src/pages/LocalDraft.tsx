@@ -1,6 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { characters, statsList, statLabels, categoryLabels, statCategoryMap, Entity } from '../data/characters';
-import { PlayerCard, DraftSelection, SearchableSelect, bindingVows } from '../components/PlayerCard';
+import {
+  characters,
+  statsList,
+  statLabels,
+  categoryLabels,
+  statCategoryMap,
+  Entity,
+} from '../data/characters';
+import {
+  PlayerCard,
+  DraftSelection,
+  SearchableSelect,
+  bindingVows,
+} from '../components/PlayerCard';
 import { DraftTimer } from '../components/DraftTimer';
 import { AchievementsModal } from '../components/Achievements';
 import { StatsModal } from '../components/StatsModal';
@@ -15,16 +27,40 @@ import { GameNavbar } from '../components/GameNavbar';
 import { GameFooter } from '../components/GameFooter';
 import { ChangelogModal } from '../components/Changelog';
 import { HowToPlayTutorial } from '../components/HowToPlayTutorial';
+import { BanPhase } from '../components/BanPhase';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Swords, Plus, CheckCircle2, Ban, HelpCircle, Trophy, Cpu, Users, Zap, Dices, Sparkles, Target, Trash2, Clock, X } from 'lucide-react';
+import {
+  Swords,
+  Plus,
+  CheckCircle2,
+  Ban,
+  HelpCircle,
+  Trophy,
+  Cpu,
+  Users,
+  Zap,
+  Dices,
+  Sparkles,
+  Target,
+  Trash2,
+  Clock,
+  X,
+} from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 import { SystemProtocol } from '../components/SystemProtocol';
-import { saveDraft, saveFullGameState, loadFullGameState, getSavedDrafts, deleteDraft, SavedDraft } from '../utils/draftStorage';
+import {
+  saveDraft,
+  saveFullGameState,
+  loadFullGameState,
+  getSavedDrafts,
+  deleteDraft,
+  SavedDraft,
+} from '../utils/draftStorage';
 
 const emptyDraft = (): DraftSelection => {
   const draft: Partial<DraftSelection> = {};
-  statsList.forEach(stat => {
+  statsList.forEach((stat) => {
     draft[stat] = null;
   });
   return draft as DraftSelection;
@@ -39,7 +75,9 @@ interface GambleState {
 export default function LocalDraft() {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<DraftSelection[]>([emptyDraft(), emptyDraft()]);
-  const [draftPhase, setDraftPhase] = useState<'start' | 'gambleConfig' | 'banning' | 'drafting' | 'comparing' | 'transitioning'>('start');
+  const [draftPhase, setDraftPhase] = useState<
+    'start' | 'gambleConfig' | 'banning' | 'drafting' | 'comparing' | 'transitioning'
+  >('start');
   const [draftMode, setDraftMode] = useState<'normal' | 'gamble'>('normal');
   const [bans, setBans] = useState<string[][]>([[], []]);
   const [roundWins, setRoundWins] = useState<number[]>([0, 0]);
@@ -64,7 +102,11 @@ export default function LocalDraft() {
   }, []);
 
   // Gamble configurations
-  const [gambleConfig, setGambleConfig] = useState({ totalRolls: 50, luckyRolls: 10, rollsPerStat: 5 });
+  const [gambleConfig, setGambleConfig] = useState({
+    totalRolls: 50,
+    luckyRolls: 10,
+    rollsPerStat: 5,
+  });
   const [gambleStates, setGambleStates] = useState<Record<number, GambleState>>({});
   const [currentTurnPlayer, setCurrentTurnPlayer] = useState(0);
   const [activeRollingStat, setActiveRollingStat] = useState<string | null>(null);
@@ -73,7 +115,7 @@ export default function LocalDraft() {
   // Sync gamble states if players are added/removed or config changes
   React.useEffect(() => {
     if (draftMode === 'gamble' && players.length > 0) {
-      setGambleStates(prev => {
+      setGambleStates((prev) => {
         const next = { ...prev };
         let changed = false;
         players.forEach((_, i) => {
@@ -81,12 +123,15 @@ export default function LocalDraft() {
             next[i] = {
               remainingTotal: gambleConfig.totalRolls,
               remainingLucky: gambleConfig.luckyRolls,
-              statRolls: {}
+              statRolls: {},
             };
             changed = true;
           } else if (Object.keys(next[i].statRolls).length === 0) {
             // If hasn't started spinning, allow config overwrite
-            if (next[i].remainingTotal !== gambleConfig.totalRolls || next[i].remainingLucky !== gambleConfig.luckyRolls) {
+            if (
+              next[i].remainingTotal !== gambleConfig.totalRolls ||
+              next[i].remainingLucky !== gambleConfig.luckyRolls
+            ) {
               next[i] = {
                 ...next[i],
                 remainingTotal: gambleConfig.totalRolls,
@@ -104,23 +149,27 @@ export default function LocalDraft() {
   // Triggers for full-screen transition overlays
   const [activeOverlay, setActiveOverlay] = useState<'ban' | 'clash' | 'startToBan' | null>(null);
 
-
   const validateDraft = (draft: DraftSelection) => {
     const newDraft = { ...draft };
-    statsList.forEach(s => {
+    statsList.forEach((s) => {
       const selectedId = newDraft[s];
       if (selectedId) {
-        const entity = characters.find(c => c.id === selectedId);
+        const entity = characters.find((c) => c.id === selectedId);
         if (entity && 'prerequisite' in entity && entity.prerequisite) {
           const hasPrerequisite = Object.values(newDraft).includes(entity.prerequisite);
           if (!hasPrerequisite) newDraft[s] = null;
         }
         if (selectedId === 'sukunas-fingers') {
-          const hasVessel = Object.values(newDraft).some(id => {
+          const hasVessel = Object.values(newDraft).some((id) => {
             if (!id) return false;
             if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id as string)) return true;
-            const char = characters.find(c => c.id === id);
-            if (char && char.loreDescription && (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))) return true;
+            const char = characters.find((c) => c.id === id);
+            if (
+              char &&
+              char.loreDescription &&
+              (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+            )
+              return true;
             return false;
           });
           if (!hasVessel) newDraft[s] = null;
@@ -148,7 +197,7 @@ export default function LocalDraft() {
     if (players.length < 8) {
       setPlayers([...players, emptyDraft()]);
       setBans([...bans, []]);
-      setRoundWins(prev => [...prev, 0]);
+      setRoundWins((prev) => [...prev, 0]);
     }
   };
 
@@ -168,9 +217,9 @@ export default function LocalDraft() {
 
       // Re-index gamble states
       if (Object.keys(gambleStates).length > 0) {
-        setGambleStates(prev => {
+        setGambleStates((prev) => {
           const next: Record<number, GambleState> = {};
-          Object.keys(prev).forEach(keyStr => {
+          Object.keys(prev).forEach((keyStr) => {
             const k = parseInt(keyStr);
             if (k < index) next[k] = prev[k];
             else if (k > index) next[k - 1] = prev[k];
@@ -183,8 +232,8 @@ export default function LocalDraft() {
 
   const getSelectedIds = () => {
     const ids = new Set<string>();
-    players.forEach(draft => {
-      Object.values(draft).forEach(id => {
+    players.forEach((draft) => {
+      Object.values(draft).forEach((id) => {
         if (typeof id === 'string') ids.add(id);
       });
     });
@@ -210,9 +259,12 @@ export default function LocalDraft() {
     if (isLucky && currentState.remainingLucky <= 0) return;
 
     const draft = players[playerIndex];
-    const category = stat === 'bindingVow' ? 'bindingVow' : (statCategoryMap[stat] || 'character');
+    const category = stat === 'bindingVow' ? 'bindingVow' : statCategoryMap[stat] || 'character';
 
-    let available: any = stat === 'bindingVow' ? bindingVows : getAvailableEntities(draft[stat], category as string, draft);
+    let available: any =
+      stat === 'bindingVow'
+        ? bindingVows
+        : getAvailableEntities(draft[stat], category as string, draft);
 
     if (stat === 'tool') {
       available = getAvailableEntities(draft[stat], 'tool', draft);
@@ -241,7 +293,7 @@ export default function LocalDraft() {
 
     let randomEntity = available[Math.floor(Math.random() * available.length)];
     if (category === 'character' && !isLucky && Math.random() < 0.3) {
-      const humanEntity = available.find(c => c.id === 'human');
+      const humanEntity = available.find((c) => c.id === 'human');
       if (humanEntity) randomEntity = humanEntity as any;
     }
 
@@ -249,11 +301,12 @@ export default function LocalDraft() {
     newGambleStates[playerIndex] = {
       ...currentState,
       remainingTotal: isVow ? currentState.remainingTotal : currentState.remainingTotal - 1,
-      remainingLucky: (isLucky && !isVow) ? currentState.remainingLucky - 1 : currentState.remainingLucky,
+      remainingLucky:
+        isLucky && !isVow ? currentState.remainingLucky - 1 : currentState.remainingLucky,
       statRolls: {
         ...currentState.statRolls,
-        [stat]: (currentState.statRolls[stat] || 0) + 1
-      }
+        [stat]: (currentState.statRolls[stat] || 0) + 1,
+      },
     };
     setGambleStates(newGambleStates);
 
@@ -273,16 +326,16 @@ export default function LocalDraft() {
 
     // Handle extra turn if Binding Vow is picked
     if (stat === 'bindingVow' && randomEntity.id) {
-       setExtraTurns(prev => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
-       handleFinishGambleTurn(); // Advance turn immediately after picking a vow
+      setExtraTurns((prev) => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
+      handleFinishGambleTurn(); // Advance turn immediately after picking a vow
     }
   };
 
   const handleFinishGambleTurn = () => {
     setActiveRollingStat(null);
-    
+
     if (extraTurns[currentTurnPlayer] > 0) {
-      setExtraTurns(prev => ({ ...prev, [currentTurnPlayer]: prev[currentTurnPlayer] - 1 }));
+      setExtraTurns((prev) => ({ ...prev, [currentTurnPlayer]: prev[currentTurnPlayer] - 1 }));
       // Player gets another turn, so currentTurnPlayer stays the same
       return;
     }
@@ -291,7 +344,7 @@ export default function LocalDraft() {
     let attempts = 0;
     while (attempts < players.length) {
       const draft = players[nextPlayer];
-      const filled = statsList.every(s => draft[s] !== null);
+      const filled = statsList.every((s) => draft[s] !== null);
       if (!filled) break;
       nextPlayer = (nextPlayer + 1) % players.length;
       attempts++;
@@ -299,11 +352,15 @@ export default function LocalDraft() {
     setCurrentTurnPlayer(nextPlayer);
   };
 
-  const getAvailableEntities = (currentSelectedId: string | null, category: string, draft: DraftSelection) => {
+  const getAvailableEntities = (
+    currentSelectedId: string | null,
+    category: string,
+    draft: DraftSelection
+  ) => {
     const selectedIds = getSelectedIds();
     const globalBans = bans.flat().filter(Boolean);
 
-    return characters.filter(entity => {
+    return characters.filter((entity) => {
       if (entity.category !== category) return false;
       if (globalBans.includes(entity.id) && entity.id !== currentSelectedId) return false;
 
@@ -318,11 +375,16 @@ export default function LocalDraft() {
       }
 
       if (entity.id === 'sukunas-fingers') {
-        const hasVessel = Object.values(draft).some(id => {
+        const hasVessel = Object.values(draft).some((id) => {
           if (!id) return false;
           if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id)) return true;
-          const char = characters.find(c => c.id === id);
-          if (char && char.loreDescription && (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))) return true;
+          const char = characters.find((c) => c.id === id);
+          if (
+            char &&
+            char.loreDescription &&
+            (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+          )
+            return true;
           return false;
         });
         if (!hasVessel) return false;
@@ -333,15 +395,15 @@ export default function LocalDraft() {
   };
 
   const handleAutoFill = () => {
-    const newPlayers = players.map(draft => ({ ...draft }));
+    const newPlayers = players.map((draft) => ({ ...draft }));
     const takenIds = new Set(getSelectedIds());
     const globalBans = bans.flat().filter(Boolean);
 
     newPlayers.forEach((draft) => {
-      statsList.forEach(stat => {
+      statsList.forEach((stat) => {
         if (!draft[stat]) {
           const category = statCategoryMap[stat] || 'character';
-          const available = characters.filter(entity => {
+          const available = characters.filter((entity) => {
             if (entity.category !== category) return false;
             if (globalBans.includes(entity.id)) return false;
             if (entity.id !== 'binding-vow' && takenIds.has(entity.id)) return false;
@@ -350,11 +412,17 @@ export default function LocalDraft() {
               if (!hasReq) return false;
             }
             if (entity.id === 'sukunas-fingers') {
-              const hasVessel = Object.values(draft).some(id => {
+              const hasVessel = Object.values(draft).some((id) => {
                 if (!id) return false;
                 if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id as string)) return true;
-                const char = characters.find(c => c.id === id);
-                if (char && char.loreDescription && (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))) return true;
+                const char = characters.find((c) => c.id === id);
+                if (
+                  char &&
+                  char.loreDescription &&
+                  (char.loreDescription.includes('Curse') ||
+                    char.loreDescription.includes('curses'))
+                )
+                  return true;
                 return false;
               });
               if (!hasVessel) return false;
@@ -380,7 +448,7 @@ export default function LocalDraft() {
           newGambleStates[i] = {
             ...newGambleStates[i],
             remainingTotal: 0,
-            remainingLucky: 0
+            remainingLucky: 0,
           };
         }
       });
@@ -401,8 +469,8 @@ export default function LocalDraft() {
   const handleLoadDraft = (saved: SavedDraft) => {
     const state = loadFullGameState(saved.id);
     if (state) {
-      setPlayers(state.players.map(p => ({ ...p })));
-      setBans(state.bans.map(b => [...b]));
+      setPlayers(state.players.map((p) => ({ ...p })));
+      setBans(state.bans.map((b) => [...b]));
     }
     setIsSavedDraftsOpen(false);
   };
@@ -416,7 +484,7 @@ export default function LocalDraft() {
   };
 
   const allSelected = players.every((draft, index) => {
-    const filled = statsList.every(stat => draft[stat] !== null);
+    const filled = statsList.every((stat) => draft[stat] !== null);
     if (draftMode === 'gamble') {
       const state = gambleStates[index];
       const outOfRolls = state && state.remainingTotal <= 0;
@@ -437,11 +505,16 @@ export default function LocalDraft() {
       {draftPhase !== 'start' && (
         <header className="w-full py-3 md:py-4 border-b border-zinc-900/80 bg-[#050505]/80 backdrop-blur-xl sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-4">
-            <div className="flex flex-col items-center md:items-start cursor-pointer" onClick={() => navigate('/play')}>
+            <div
+              className="flex flex-col items-center md:items-start cursor-pointer"
+              onClick={() => navigate('/play')}
+            >
               <h1 className="text-2xl md:text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-400 uppercase tracking-wide drop-shadow-[0_0_15px_rgba(220,38,38,0.3)] pr-1 hover:from-red-500 hover:to-red-300 transition-all">
                 JJK DRAFT
               </h1>
-              <p className="text-zinc-500 font-mono text-[10px] md:text-xs tracking-widest uppercase hover:text-zinc-400 transition-colors">Build Your Ultimate Sorcerer</p>
+              <p className="text-zinc-500 font-mono text-[10px] md:text-xs tracking-widest uppercase hover:text-zinc-400 transition-colors">
+                Build Your Ultimate Sorcerer
+              </p>
             </div>
 
             {!draftPhase.includes('comparing') && draftPhase === 'drafting' && (
@@ -456,10 +529,11 @@ export default function LocalDraft() {
                 <button
                   onClick={() => allSelected && setActiveOverlay('clash')}
                   disabled={!allSelected}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold font-display uppercase tracking-wider transition-all ${allSelected
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold font-display uppercase tracking-wider transition-all ${
+                    allSelected
                       ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] hover:scale-105'
                       : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                    }`}
+                  }`}
                 >
                   <CheckCircle2 size={20} />
                   {allSelected ? 'Finish Draft' : 'Complete Selections'}
@@ -470,7 +544,9 @@ export default function LocalDraft() {
         </header>
       )}
 
-      <main className={`max-w-7xl mx-auto px-4 py-12 flex flex-col items-center ${draftPhase === 'start' ? 'flex-1 w-full' : ''}`}>
+      <main
+        className={`max-w-7xl mx-auto px-4 py-12 flex flex-col items-center ${draftPhase === 'start' ? 'flex-1 w-full' : ''}`}
+      >
         {draftPhase !== 'start' && draftPhase !== 'comparing' && matchHistory.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -479,18 +555,32 @@ export default function LocalDraft() {
           >
             <div className="flex items-center gap-3">
               <Trophy className="text-yellow-500" size={20} />
-              <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-widest">{matchHistory.length} Matches</span>
+              <span className="font-mono text-[10px] text-zinc-400 uppercase tracking-widest">
+                {matchHistory.length} Matches
+              </span>
             </div>
             <div className="flex gap-6 items-center font-mono font-bold text-sm tracking-widest uppercase">
               {players.map((p, i) => (
-                <span key={i} className={roundWins[i] > 0 ? "text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" : "text-zinc-500"}>
-                  {p.playerName || `P${i + 1}`}: <span className="text-xl">{roundWins[i] || 0}</span>
+                <span
+                  key={i}
+                  className={
+                    roundWins[i] > 0
+                      ? 'text-yellow-400 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]'
+                      : 'text-zinc-500'
+                  }
+                >
+                  {p.playerName || `P${i + 1}`}:{' '}
+                  <span className="text-xl">{roundWins[i] || 0}</span>
                 </span>
               ))}
             </div>
             <div className="hidden md:block w-px h-6 bg-zinc-700"></div>
             <button
-              onClick={() => { setMatchHistory([]); setRoundWins(players.map(() => 0)); setDraftPhase('start'); }}
+              onClick={() => {
+                setMatchHistory([]);
+                setRoundWins(players.map(() => 0));
+                setDraftPhase('start');
+              }}
               className="text-[10px] font-mono text-zinc-500 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2"
             >
               End Series
@@ -510,7 +600,7 @@ export default function LocalDraft() {
               <motion.div
                 initial={{ scale: 3, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 1.5, ease: "circOut", bounce: 0 }}
+                transition={{ duration: 1.5, ease: 'circOut', bounce: 0 }}
                 className="text-7xl md:text-[180px] font-black font-display uppercase tracking-[-0.05em] text-center leading-[0.85] z-10"
               >
                 JJK
@@ -523,9 +613,9 @@ export default function LocalDraft() {
               <motion.p
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.8, duration: 0.8, ease: "easeOut" }}
+                transition={{ delay: 0.8, duration: 0.8, ease: 'easeOut' }}
                 className="mt-8 text-zinc-400 font-mono tracking-[0.3em] uppercase text-sm md:text-lg text-center mb-8"
-                style={{ willChange: "opacity, transform" }}
+                style={{ willChange: 'opacity, transform' }}
               >
                 Build Your Ultimate Sorcerer
               </motion.p>
@@ -542,16 +632,26 @@ export default function LocalDraft() {
                     initial={{ opacity: 0, scale: 0.9, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 1.8, duration: 0.6 }}
-                    onClick={() => { setDraftMode('normal'); setActiveOverlay('startToBan'); }}
+                    onClick={() => {
+                      setDraftMode('normal');
+                      setActiveOverlay('startToBan');
+                    }}
                     className="relative group overflow-hidden px-5 py-7 bg-zinc-900/60 border-2 border-red-900/30 hover:border-red-500 rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(220,38,38,0.2)] hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-red-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-0 left-0 w-1 h-full bg-red-600 opacity-50 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <Swords size={34} className="text-red-500 group-hover:text-red-400 transition-colors" />
+                      <Swords
+                        size={34}
+                        className="text-red-500 group-hover:text-red-400 transition-colors"
+                      />
                       <div className="text-center">
-                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">Standard Protocol</div>
-                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">Classic 1v1 Draft</div>
+                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">
+                          Standard Protocol
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">
+                          Classic 1v1 Draft
+                        </div>
                       </div>
                     </div>
                   </motion.button>
@@ -560,16 +660,26 @@ export default function LocalDraft() {
                     initial={{ opacity: 0, scale: 0.9, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 1.9, duration: 0.6 }}
-                    onClick={() => { setDraftMode('gamble'); setDraftPhase('gambleConfig'); }}
+                    onClick={() => {
+                      setDraftMode('gamble');
+                      setDraftPhase('gambleConfig');
+                    }}
                     className="relative group overflow-hidden px-5 py-7 bg-zinc-900/60 border-2 border-yellow-900/30 hover:border-yellow-500 rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(234,179,8,0.2)] hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-yellow-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-0 left-0 w-1 h-full bg-yellow-600 opacity-50 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <Dices size={34} className="text-yellow-500 group-hover:text-yellow-400 transition-colors" />
+                      <Dices
+                        size={34}
+                        className="text-yellow-500 group-hover:text-yellow-400 transition-colors"
+                      />
                       <div className="text-center">
-                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">Cursed Lottery</div>
-                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">Randomized Stat Roll</div>
+                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">
+                          Cursed Lottery
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">
+                          Randomized Stat Roll
+                        </div>
                       </div>
                     </div>
                   </motion.button>
@@ -584,10 +694,17 @@ export default function LocalDraft() {
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-50 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <Cpu size={34} className="text-blue-500 group-hover:text-blue-400 transition-colors" />
+                      <Cpu
+                        size={34}
+                        className="text-blue-500 group-hover:text-blue-400 transition-colors"
+                      />
                       <div className="text-center">
-                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">Vs Bot</div>
-                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">AI-Powered Combat</div>
+                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">
+                          Vs Bot
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">
+                          AI-Powered Combat
+                        </div>
                       </div>
                     </div>
                   </motion.button>
@@ -602,10 +719,17 @@ export default function LocalDraft() {
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-0 left-0 w-1 h-full bg-purple-600 opacity-50 group-hover:opacity-100 transition-opacity" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
-                      <Users size={34} className="text-purple-500 group-hover:text-purple-400 transition-colors" />
+                      <Users
+                        size={34}
+                        className="text-purple-500 group-hover:text-purple-400 transition-colors"
+                      />
                       <div className="text-center">
-                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">Online</div>
-                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">Global Network</div>
+                        <div className="text-base md:text-lg font-black text-white uppercase tracking-wider">
+                          Online
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 mt-1 uppercase tracking-widest">
+                          Global Network
+                        </div>
                       </div>
                     </div>
                   </motion.button>
@@ -648,12 +772,16 @@ export default function LocalDraft() {
                       <div className="bg-zinc-900/40 border border-zinc-800 p-5 rounded-2xl backdrop-blur-sm">
                         <div className="flex flex-col gap-4">
                           <div className="flex items-center justify-between">
-                            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider">Bans per player</label>
+                            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+                              Bans per player
+                            </label>
                             <div className="flex gap-2">
-                              {[1, 2, 3].map(n => (
+                              {[1, 2, 3].map((n) => (
                                 <button
                                   key={n}
-                                  onClick={() => setGameSettings(prev => ({ ...prev, banCount: n }))}
+                                  onClick={() =>
+                                    setGameSettings((prev) => ({ ...prev, banCount: n }))
+                                  }
                                   className={`w-8 h-8 rounded-lg text-xs font-mono font-bold transition-colors ${
                                     gameSettings.banCount === n
                                       ? 'bg-blue-600 text-white'
@@ -667,24 +795,30 @@ export default function LocalDraft() {
                           </div>
 
                           <div className="flex items-center justify-between">
-                            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider">Timer</label>
+                            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider">
+                              Timer
+                            </label>
                             <div className="flex gap-2">
                               {[
                                 { label: 'OFF', value: 0 },
                                 { label: '60s', value: 60 },
                                 { label: '120s', value: 120 },
                                 { label: '180s', value: 180 },
-                              ].map(opt => (
+                              ].map((opt) => (
                                 <button
                                   key={opt.value}
-                                  onClick={() => setGameSettings(prev => ({
-                                    ...prev,
-                                    timerEnabled: opt.value > 0,
-                                    timerDuration: opt.value || 120,
-                                  }))}
+                                  onClick={() =>
+                                    setGameSettings((prev) => ({
+                                      ...prev,
+                                      timerEnabled: opt.value > 0,
+                                      timerDuration: opt.value || 120,
+                                    }))
+                                  }
                                   className={`px-3 h-8 rounded-lg text-xs font-mono font-bold transition-colors ${
                                     (opt.value === 0 && !gameSettings.timerEnabled) ||
-                                    (opt.value > 0 && gameSettings.timerEnabled && gameSettings.timerDuration === opt.value)
+                                    (opt.value > 0 &&
+                                      gameSettings.timerEnabled &&
+                                      gameSettings.timerDuration === opt.value)
                                       ? 'bg-blue-600 text-white'
                                       : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                                   }`}
@@ -705,7 +839,7 @@ export default function LocalDraft() {
               <motion.div
                 initial={{ scale: 0, rotate: -45, opacity: 0 }}
                 animate={{ scale: 1, rotate: 0, opacity: 0.05 }}
-                transition={{ duration: 3, delay: 0.5, ease: "easeOut" }}
+                transition={{ duration: 3, delay: 0.5, ease: 'easeOut' }}
                 className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10 overflow-hidden"
               >
                 <div className="text-[400px] md:text-[600px] font-black font-display rotate-12 leading-none text-white blur-[4px]">
@@ -720,23 +854,34 @@ export default function LocalDraft() {
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-16 w-full max-w-2xl bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 relative overflow-hidden group"
                 >
-                  <div className="absolute top-0 right-0 p-4 opacity-10 font-black text-6xl italic -rotate-12 pointer-events-none">HISTORY</div>
+                  <div className="absolute top-0 right-0 p-4 opacity-10 font-black text-6xl italic -rotate-12 pointer-events-none">
+                    HISTORY
+                  </div>
                   <h3 className="text-xl font-black font-display text-white uppercase tracking-widest mb-6 flex items-center gap-3">
                     <Trophy className="text-yellow-500" size={24} />
                     Series Logs
                   </h3>
                   <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                     {matchHistory.map((m, i) => (
-                      <div key={i} className="bg-black/40 border border-white/5 p-3 rounded-lg flex items-center justify-between group-hover:border-red-500/20 transition-colors">
+                      <div
+                        key={i}
+                        className="bg-black/40 border border-white/5 p-3 rounded-lg flex items-center justify-between group-hover:border-red-500/20 transition-colors"
+                      >
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-mono text-zinc-500 uppercase">{new Date(m.date).toLocaleTimeString()}</span>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                            {new Date(m.date).toLocaleTimeString()}
+                          </span>
                           <div className="flex gap-2 items-center mt-1">
                             {m.players.map((p: any, pi: number) => (
                               <div key={pi} className="flex items-center gap-1">
-                                <span className={`text-xs font-black uppercase ${p.isWinner ? 'text-yellow-500 underline decoration-yellow-500/50 underline-offset-2' : 'text-zinc-400'}`}>
+                                <span
+                                  className={`text-xs font-black uppercase ${p.isWinner ? 'text-yellow-500 underline decoration-yellow-500/50 underline-offset-2' : 'text-zinc-400'}`}
+                                >
                                   {p.name}: {p.score}
                                 </span>
-                                {pi < m.players.length - 1 && <span className="text-zinc-700 text-[10px]">VS</span>}
+                                {pi < m.players.length - 1 && (
+                                  <span className="text-zinc-700 text-[10px]">VS</span>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -750,7 +895,10 @@ export default function LocalDraft() {
                     ))}
                   </div>
                   <button
-                    onClick={() => { setMatchHistory([]); setRoundWins(players.map(() => 0)); }}
+                    onClick={() => {
+                      setMatchHistory([]);
+                      setRoundWins(players.map(() => 0));
+                    }}
                     className="mt-4 text-[10px] font-mono text-zinc-600 hover:text-red-500 uppercase tracking-widest transition-colors flex items-center gap-2"
                   >
                     <Trash2 size={12} /> Clear Records
@@ -767,7 +915,7 @@ export default function LocalDraft() {
                 initial={{ opacity: 0, scale: 0.9, y: 40 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 1.1 }}
-                transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                transition={{ type: 'spring', damping: 20, stiffness: 100 }}
                 className="flex flex-col items-center gap-5 w-full max-w-xl bg-black/90 backdrop-blur-xl border border-yellow-500/20 p-6 rounded-2xl shadow-[0_0_50px_rgba(234,179,8,0.15)] relative overflow-y-auto max-h-[85vh] custom-scrollbar"
               >
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
@@ -778,63 +926,126 @@ export default function LocalDraft() {
                     <Dices size={32} className="text-yellow-500" />
                     Cursed Lottery
                   </h2>
-                  <p className="text-yellow-500/50 font-mono tracking-[0.2em] uppercase text-xs mt-1">Configure Rules</p>
+                  <p className="text-yellow-500/50 font-mono tracking-[0.2em] uppercase text-xs mt-1">
+                    Configure Rules
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-4 w-full text-zinc-300 z-10 mt-2">
                   <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-yellow-500/30 transition-colors">
                     <div className="flex justify-between items-end mb-3">
                       <div className="flex gap-3 items-center">
-                        <Dices className="text-zinc-500 group-hover:text-yellow-500 transition-colors" size={20} />
+                        <Dices
+                          className="text-zinc-500 group-hover:text-yellow-500 transition-colors"
+                          size={20}
+                        />
                         <div>
-                          <label className="text-base font-black uppercase tracking-wider text-white">Global Roll Pool</label>
-                          <p className="text-[10px] text-zinc-500 font-mono">Total spins shared across 10 categories.</p>
+                          <label className="text-base font-black uppercase tracking-wider text-white">
+                            Global Roll Pool
+                          </label>
+                          <p className="text-[10px] text-zinc-500 font-mono">
+                            Total spins shared across 10 categories.
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-black text-yellow-500 font-display">{gambleConfig.totalRolls}</span>
+                        <span className="text-2xl font-black text-yellow-500 font-display">
+                          {gambleConfig.totalRolls}
+                        </span>
                         {gambleConfig.totalRolls < gambleConfig.rollsPerStat * 10 && (
-                          <div className="text-[10px] text-red-500 font-bold animate-pulse">Below Optimal: {gambleConfig.rollsPerStat * 10} min</div>
+                          <div className="text-[10px] text-red-500 font-bold animate-pulse">
+                            Below Optimal: {gambleConfig.rollsPerStat * 10} min
+                          </div>
                         )}
                       </div>
                     </div>
-                    <input type="range" min="10" max="300" step="5" value={gambleConfig.totalRolls} onChange={e => {
-                      const val = +e.target.value;
-                      setGambleConfig({ ...gambleConfig, totalRolls: val, rollsPerStat: Math.min(gambleConfig.rollsPerStat, Math.floor(val / 10)) });
-                    }} className="w-full accent-yellow-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                    <input
+                      type="range"
+                      min="10"
+                      max="300"
+                      step="5"
+                      value={gambleConfig.totalRolls}
+                      onChange={(e) => {
+                        const val = +e.target.value;
+                        setGambleConfig({
+                          ...gambleConfig,
+                          totalRolls: val,
+                          rollsPerStat: Math.min(gambleConfig.rollsPerStat, Math.floor(val / 10)),
+                        });
+                      }}
+                      className="w-full accent-yellow-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                    />
                   </div>
 
                   <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-yellow-400/30 transition-colors">
                     <div className="flex justify-between items-end mb-3">
                       <div className="flex gap-3 items-center">
-                        <Sparkles className="text-zinc-500 group-hover:text-yellow-400 transition-colors" size={20} />
+                        <Sparkles
+                          className="text-zinc-500 group-hover:text-yellow-400 transition-colors"
+                          size={20}
+                        />
                         <div>
-                          <label className="text-base font-black uppercase tracking-wider text-white">Jackpot (Lucky) Rolls</label>
-                          <p className="text-[10px] text-zinc-500 font-mono">Elite/Mythic focus (Uses Global Pool + Stat Capacity).</p>
+                          <label className="text-base font-black uppercase tracking-wider text-white">
+                            Jackpot (Lucky) Rolls
+                          </label>
+                          <p className="text-[10px] text-zinc-500 font-mono">
+                            Elite/Mythic focus (Uses Global Pool + Stat Capacity).
+                          </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-black text-yellow-400 font-display">{gambleConfig.luckyRolls}</span>
+                      <span className="text-2xl font-black text-yellow-400 font-display">
+                        {gambleConfig.luckyRolls}
+                      </span>
                     </div>
-                    <input type="range" min="0" max={Math.min(50, gambleConfig.totalRolls)} step="1" value={gambleConfig.luckyRolls} onChange={e => {
-                      setGambleConfig({ ...gambleConfig, luckyRolls: +e.target.value });
-                    }} className="w-full accent-yellow-400 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                    <input
+                      type="range"
+                      min="0"
+                      max={Math.min(50, gambleConfig.totalRolls)}
+                      step="1"
+                      value={gambleConfig.luckyRolls}
+                      onChange={(e) => {
+                        setGambleConfig({ ...gambleConfig, luckyRolls: +e.target.value });
+                      }}
+                      className="w-full accent-yellow-400 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                    />
                   </div>
 
                   <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-red-500/30 transition-colors">
                     <div className="flex justify-between items-end mb-3">
                       <div className="flex gap-3 items-center">
-                        <Target className="text-zinc-500 group-hover:text-red-500 transition-colors" size={20} />
+                        <Target
+                          className="text-zinc-500 group-hover:text-red-500 transition-colors"
+                          size={20}
+                        />
                         <div>
-                          <label className="text-base font-black uppercase tracking-wider text-white">Category Limit</label>
-                          <p className="text-[10px] text-zinc-500 font-mono">Max spins allowed per individual category.</p>
+                          <label className="text-base font-black uppercase tracking-wider text-white">
+                            Category Limit
+                          </label>
+                          <p className="text-[10px] text-zinc-500 font-mono">
+                            Max spins allowed per individual category.
+                          </p>
                         </div>
                       </div>
-                      <span className="text-2xl font-black text-red-500 font-display">{gambleConfig.rollsPerStat}</span>
+                      <span className="text-2xl font-black text-red-500 font-display">
+                        {gambleConfig.rollsPerStat}
+                      </span>
                     </div>
-                    <input type="range" min="1" max="30" step="1" value={gambleConfig.rollsPerStat} onChange={e => {
-                      const val = +e.target.value;
-                      setGambleConfig({ ...gambleConfig, rollsPerStat: val, totalRolls: Math.max(gambleConfig.totalRolls, val * 10) });
-                    }} className="w-full accent-red-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                    <input
+                      type="range"
+                      min="1"
+                      max="30"
+                      step="1"
+                      value={gambleConfig.rollsPerStat}
+                      onChange={(e) => {
+                        const val = +e.target.value;
+                        setGambleConfig({
+                          ...gambleConfig,
+                          rollsPerStat: val,
+                          totalRolls: Math.max(gambleConfig.totalRolls, val * 10),
+                        });
+                      }}
+                      className="w-full accent-red-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                    />
                   </div>
                 </div>
 
@@ -845,7 +1056,7 @@ export default function LocalDraft() {
                       initialGambleStates[i] = {
                         remainingTotal: gambleConfig.totalRolls,
                         remainingLucky: gambleConfig.luckyRolls,
-                        statRolls: {}
+                        statRolls: {},
                       };
                     });
                     setGambleStates(initialGambleStates);
@@ -865,79 +1076,24 @@ export default function LocalDraft() {
               initial={{ opacity: 0, scale: 1.05 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
               className="flex flex-col items-center gap-12 w-full"
             >
-              <div className="text-center">
-                <h2 className="text-4xl font-black text-red-500 uppercase tracking-widest mb-2 flex items-center justify-center gap-3">
-                  <Ban size={36} /> Ban Phase
-                </h2>
-                <p className="text-zinc-400">Each player must ban 2 entities from the draft pool.</p>
-              </div>
-
-              <div className={`grid gap-8 w-full items-start ${
-                players.length <= 2
-                  ? 'grid-cols-1 md:grid-cols-2 justify-items-center'
-                  : players.length <= 4
-                    ? 'grid-cols-1 md:grid-cols-2 justify-items-center'
-                    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center'
-              }`}>
-                {players.map((_, pIndex) => (
-                  <div key={pIndex} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex flex-col gap-4 w-full max-w-sm relative transition-all duration-300 hover:z-50 focus-within:z-50">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-2xl font-black text-white uppercase truncate pr-2">
-                        {players[pIndex].playerName || `Player ${pIndex + 1}`} Bans
-                      </h3>
-                      {players.length > 2 && (
-                        <button onClick={() => handleRemovePlayer(pIndex)} className="text-zinc-500 hover:text-red-500 transition-colors">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                        </button>
-                      )}
-                    </div>
-                    {Array.from({ length: gameSettings.banCount }).map((_, banIndex) => {
-                      const otherBanIds = bans.flat().filter(id => id && id !== bans[pIndex][banIndex]);
-                      const availableBans = characters.filter(c => !otherBanIds.includes(c.id));
-                      const options = availableBans.map(c => ({
-                        value: c.id,
-                        label: c.name,
-                        loreDescription: c.loreDescription,
-                        grade: c.grade,
-                        description: c.flavorText
-                      }));
-                      return (
-                        <div key={banIndex} className="relative">
-                          <SearchableSelect
-                            value={bans[pIndex][banIndex] || ""}
-                            placeholder={`Ban ${banIndex + 1}`}
-                            options={options}
-                            onChange={(val) => {
-                              const newBans = [...bans];
-                              newBans[pIndex][banIndex] = val;
-                              setBans(newBans);
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-                {players.length < 8 && (
-                  <button onClick={handleAddPlayer} className="h-full min-h-[250px] w-full max-w-sm flex items-center justify-center bg-zinc-900/30 border border-dashed border-zinc-700 hover:border-red-500 hover:bg-zinc-900/50 hover:text-red-400 text-zinc-500 rounded-xl font-mono text-lg uppercase tracking-widest transition-all gap-3 cursor-pointer">
-                    <Plus size={24} /> Add Challenger
-                  </button>
-                )}
-              </div>
-
-              {bans.every(pBans => pBans.length >= gameSettings.banCount && pBans.slice(0, gameSettings.banCount).every(Boolean)) && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setActiveOverlay('ban')}
-                  className="bg-red-600 hover:bg-red-700 text-white font-black font-display py-4 px-12 rounded-full text-xl uppercase tracking-widest shadow-[0_0_20px_rgba(220,38,38,0.4)] transition-all hover:scale-105"
-                >
-                  Begin Draft
-                </motion.button>
-              )}
+              <BanPhase
+                players={players}
+                bans={bans}
+                banCount={gameSettings.banCount}
+                onBanChange={(pIndex, banIndex, val) => {
+                  const newBans = bans.map((b) => [...b]);
+                  while (newBans.length <= pIndex) newBans.push([]);
+                  newBans[pIndex][banIndex] = val;
+                  setBans(newBans);
+                }}
+                onNameChange={handleNameChange}
+                onRemovePlayer={players.length > 2 ? handleRemovePlayer : undefined}
+                onAddPlayer={players.length < 8 ? handleAddPlayer : undefined}
+                onBegin={() => setActiveOverlay('ban')}
+              />
             </motion.div>
           )}
 
@@ -950,13 +1106,15 @@ export default function LocalDraft() {
               transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
               className="flex flex-col items-center gap-12"
             >
-              <div className={`grid gap-8 w-full items-start relative z-20 ${
-                players.length <= 2
-                  ? 'grid-cols-1 md:grid-cols-2 justify-items-center'
-                  : players.length <= 4
+              <div
+                className={`grid gap-8 w-full items-start relative z-20 ${
+                  players.length <= 2
                     ? 'grid-cols-1 md:grid-cols-2 justify-items-center'
-                    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center'
-              }`}>
+                    : players.length <= 4
+                      ? 'grid-cols-1 md:grid-cols-2 justify-items-center'
+                      : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 justify-items-center'
+                }`}
+              >
                 {players.map((draft, index) => (
                   <PlayerCard
                     key={index}
@@ -985,13 +1143,17 @@ export default function LocalDraft() {
                   isActive={gameSettings.timerEnabled && draftPhase === 'drafting'}
                   duration={gameSettings.timerDuration}
                   onTimeUp={() => {
-                    const emptyPlayer = players.findIndex(p => statsList.some(s => p[s] === null));
+                    const emptyPlayer = players.findIndex((p) =>
+                      statsList.some((s) => p[s] === null)
+                    );
                     if (emptyPlayer !== -1) {
-                      const emptyStat = statsList.find(s => players[emptyPlayer][s] === null);
+                      const emptyStat = statsList.find((s) => players[emptyPlayer][s] === null);
                       if (emptyStat) {
                         const category = statCategoryMap[emptyStat] || 'character';
                         const available = characters.filter(
-                          e => e.category === category && !Object.values(players[emptyPlayer]).includes(e.id)
+                          (e) =>
+                            e.category === category &&
+                            !Object.values(players[emptyPlayer]).includes(e.id)
                         );
                         if (available.length > 0) {
                           handleSelect(emptyPlayer, emptyStat, available[0].id);
@@ -1001,7 +1163,9 @@ export default function LocalDraft() {
                   }}
                 />
                 <button
-                  onClick={() => setGameSettings(prev => ({ ...prev, timerEnabled: !prev.timerEnabled }))}
+                  onClick={() =>
+                    setGameSettings((prev) => ({ ...prev, timerEnabled: !prev.timerEnabled }))
+                  }
                   className={`px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-wider border transition-colors ${
                     gameSettings.timerEnabled
                       ? 'bg-red-950/40 border-red-800/40 text-red-400'
@@ -1044,7 +1208,7 @@ export default function LocalDraft() {
                       resetGambleStates[i] = {
                         remainingTotal: gambleConfig.totalRolls,
                         remainingLucky: gambleConfig.luckyRolls,
-                        statRolls: {}
+                        statRolls: {},
                       };
                     });
                     setGambleStates(resetGambleStates);
@@ -1059,12 +1223,12 @@ export default function LocalDraft() {
                     players: players.map((p, i) => ({
                       name: p.playerName || `Player ${i + 1}`,
                       score: finalScores[i],
-                      isWinner: winners.includes(i)
-                    }))
+                      isWinner: winners.includes(i),
+                    })),
                   };
-                  setMatchHistory(prev => [matchRecord, ...prev]);
+                  setMatchHistory((prev) => [matchRecord, ...prev]);
 
-                  winners.forEach(w => {
+                  winners.forEach((w) => {
                     if (newWins[w] !== undefined) newWins[w]++;
                   });
                   setRoundWins(newWins);
@@ -1076,15 +1240,17 @@ export default function LocalDraft() {
                       resetGambleStates[i] = {
                         remainingTotal: gambleConfig.totalRolls,
                         remainingLucky: gambleConfig.luckyRolls,
-                        statRolls: {}
+                        statRolls: {},
                       };
                     });
                     setGambleStates(resetGambleStates);
                   }
 
-                  const names = players.map(p => p.playerName || '');
+                  const names = players.map((p) => p.playerName || '');
                   const newPlayers = players.map(() => emptyDraft());
-                  names.forEach((n, i) => { newPlayers[i].playerName = n; });
+                  names.forEach((n, i) => {
+                    newPlayers[i].playerName = n;
+                  });
 
                   setPlayers(newPlayers);
                   setBans(players.map(() => []));
@@ -1127,7 +1293,11 @@ export default function LocalDraft() {
       <HowToPlayTutorial isOpen={isHowToPlayOpen} onClose={() => setIsHowToPlayOpen(false)} />
 
       {/* Feedback System */}
-      <FeedbackSystem hidden={true} isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      <FeedbackSystem
+        hidden={true}
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+      />
 
       {/* Achievements Modal */}
       <AchievementsModal isOpen={isAchievementsOpen} onClose={() => setIsAchievementsOpen(false)} />
@@ -1194,10 +1364,14 @@ export default function LocalDraft() {
               className="relative w-full max-w-md bg-[#0a0a0a] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             >
               <div className="p-6 border-b border-zinc-800 bg-[#050505]">
-                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">Save Draft</h2>
+                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">
+                  Save Draft
+                </h2>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-zinc-400 font-mono text-sm">Save your current draft to localStorage?</p>
+                <p className="text-zinc-400 font-mono text-sm">
+                  Save your current draft to localStorage?
+                </p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setIsSaveConfirmOpen(false)}
@@ -1236,7 +1410,9 @@ export default function LocalDraft() {
               className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
             >
               <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-[#050505]">
-                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">Saved Drafts</h2>
+                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">
+                  Saved Drafts
+                </h2>
                 <button
                   onClick={() => setIsSavedDraftsOpen(false)}
                   className="text-zinc-500 hover:text-white transition-colors"
@@ -1255,7 +1431,9 @@ export default function LocalDraft() {
                     >
                       <div className="flex-1">
                         <p className="text-white font-mono text-sm font-bold">{saved.name}</p>
-                        <p className="text-zinc-500 font-mono text-xs">{new Date(saved.timestamp).toLocaleDateString()}</p>
+                        <p className="text-zinc-500 font-mono text-xs">
+                          {new Date(saved.timestamp).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -1277,7 +1455,9 @@ export default function LocalDraft() {
               </div>
               {deleteConfirmId && (
                 <div className="p-6 border-t border-zinc-800 bg-black/50">
-                  <p className="text-zinc-300 text-sm mb-4 font-mono uppercase tracking-widest text-center">Delete this saved draft?</p>
+                  <p className="text-zinc-300 text-sm mb-4 font-mono uppercase tracking-widest text-center">
+                    Delete this saved draft?
+                  </p>
                   <div className="flex gap-3">
                     <button
                       onClick={() => {

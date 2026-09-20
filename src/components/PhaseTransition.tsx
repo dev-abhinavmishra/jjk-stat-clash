@@ -10,15 +10,17 @@ interface PhaseTransitionProps {
   bottomTitle: string;
 }
 
-export function PhaseTransition({ 
-  onPhaseSwap, 
+export function PhaseTransition({
+  onPhaseSwap,
   onComplete,
   topKanji,
   topEnglish,
   bottomPhase,
-  bottomTitle
+  bottomTitle,
 }: PhaseTransitionProps) {
-  const [phase, setPhase] = useState<'blackout' | 'kanji_slam' | 'impact' | 'reverse_slam' | 'manifest' | 'fade'>('blackout');
+  const [phase, setPhase] = useState<
+    'blackout' | 'kanji_slam' | 'impact' | 'reverse_slam' | 'manifest' | 'fade'
+  >('blackout');
 
   const phaseSwapRef = useRef(onPhaseSwap);
   const completeRef = useRef(onComplete);
@@ -46,14 +48,15 @@ export function PhaseTransition({
   }, []);
 
   return (
-    <div className={`fixed inset-0 z-[100] pointer-events-none flex items-center justify-center transition-colors duration-300 ${
-      phase === 'fade' || phase === 'manifest' ? 'bg-transparent' : 'bg-black'
-    }`}>
-      
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center transition-colors duration-300 ${
+        phase === 'fade' || phase === 'manifest' ? 'bg-transparent' : 'bg-black'
+      }`}
+    >
       {/* Background overlay for manifest phase so we can see text clearly before fade */}
       <AnimatePresence>
         {phase === 'manifest' && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -62,7 +65,6 @@ export function PhaseTransition({
       </AnimatePresence>
 
       <div className="relative flex items-center justify-center w-full h-full overflow-hidden">
-        
         {/* KANJI SLAM PHASE */}
         <AnimatePresence>
           {(phase === 'kanji_slam' || phase === 'impact') && (
@@ -71,16 +73,16 @@ export function PhaseTransition({
               initial={{ scale: 3, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
-              transition={{ 
-                duration: phase === 'kanji_slam' ? 0.2 : 0.3, 
-                ease: phase === 'kanji_slam' ? 'easeIn' : 'backIn' 
+              transition={{
+                duration: phase === 'kanji_slam' ? 0.2 : 0.3,
+                ease: phase === 'kanji_slam' ? 'easeIn' : 'backIn',
               }}
               className="absolute flex flex-col items-center justify-center -rotate-6"
             >
               <div className="text-[120px] md:text-[250px] font-black font-display leading-none text-white tracking-widest drop-shadow-[0_0_15px_rgba(220,38,38,0.8)]">
                 {topKanji}
               </div>
-              
+
               {/* IMPACT PHASE ENGLISH TEXT */}
               <AnimatePresence>
                 {phase === 'impact' && (
@@ -100,7 +102,7 @@ export function PhaseTransition({
 
         {/* MANIFEST PHASE */}
         <AnimatePresence>
-          {(phase === 'manifest') && (
+          {phase === 'manifest' && (
             <motion.div
               initial={{ scale: 1.5, opacity: 0, rotateX: 90 }}
               animate={{ scale: 1, opacity: 1, rotateX: 0 }}
@@ -108,9 +110,9 @@ export function PhaseTransition({
               transition={{ type: 'spring', damping: 20, stiffness: 100 }}
               className="absolute z-50 flex flex-col items-center justify-center text-center perspective-[1000px]"
             >
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: "100%" }}
+                animate={{ width: '100%' }}
                 transition={{ duration: 0.3, delay: 0.1 }}
                 className="h-1 bg-red-600 mb-4"
               />
@@ -120,16 +122,16 @@ export function PhaseTransition({
               <h1 className="text-5xl md:text-[100px] font-black font-display text-white tracking-[0.1em] uppercase leading-none drop-shadow-[0_0_20px_rgba(0,0,0,1)]">
                 {bottomTitle}
               </h1>
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: "100%" }}
+                animate={{ width: '100%' }}
                 transition={{ duration: 0.3, delay: 0.1 }}
                 className="h-1 bg-red-600 mt-4"
               />
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {/* SCREEN SHAKE EFFECT */}
         {(phase === 'kanji_slam' || phase === 'manifest') && (
           <motion.div
@@ -142,6 +144,3 @@ export function PhaseTransition({
     </div>
   );
 }
-
-
-
