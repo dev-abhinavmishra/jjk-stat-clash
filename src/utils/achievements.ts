@@ -14,6 +14,10 @@ export interface AchievementContext {
   playerIndex: number;
   activePairings: string[];
   blackFlashCount: number;
+  playerBlackFlashes: number;
+  statRoundsWon: number;
+  statRoundsLost: number;
+  winMargin: number;
   allSlotsFilled: boolean;
 }
 
@@ -68,7 +72,7 @@ export const achievements: Achievement[] = [
   {
     id: 'perfectionist',
     name: 'Perfectionist',
-    description: 'Win with all 11 stat slots filled',
+    description: 'Win with all stat slots filled',
     icon: '💎',
     check: (ctx) => ctx.hasWon && ctx.allSlotsFilled,
   },
@@ -77,7 +81,8 @@ export const achievements: Achievement[] = [
     name: 'Comeback King',
     description: 'Win after losing the first round',
     icon: '🔄',
-    check: (ctx) => ctx.hasWon && ctx.roundWins.length >= 2 && ctx.roundWins.filter(w => w > 0).length === 1,
+    check: (ctx) =>
+      ctx.hasWon && ctx.roundWins.length >= 2 && ctx.roundWins.filter((w) => w > 0).length === 1,
   },
   {
     id: 'black-flash-master',
@@ -98,13 +103,34 @@ export const achievements: Achievement[] = [
     name: 'Secret Hunter',
     description: 'Unlock a secret pairing',
     icon: '🔮',
-    check: (ctx) => ctx.activePairings.some(p => p.startsWith('secret-')),
+    check: (ctx) => ctx.activePairings.some((p) => p.startsWith('secret-')),
   },
   {
     id: 'sweep',
     name: 'Perfect Sweep',
-    description: 'Win without losing a single round',
+    description: 'Win without losing a single stat round',
     icon: '🧹',
-    check: (ctx) => ctx.hasWon && ctx.roundWins.every(w => w === 0),
+    check: (ctx) => ctx.hasWon && ctx.statRoundsLost === 0,
+  },
+  {
+    id: 'overwhelming-force',
+    name: 'Overwhelming Force',
+    description: 'Win 10+ stat rounds in a single clash',
+    icon: '💥',
+    check: (ctx) => ctx.statRoundsWon >= 10,
+  },
+  {
+    id: 'photo-finish',
+    name: 'Photo Finish',
+    description: 'Win a clash by a margin of 25 points or fewer',
+    icon: '📸',
+    check: (ctx) => ctx.hasWon && ctx.winMargin <= 25,
+  },
+  {
+    id: 'black-flash-adept',
+    name: 'Black Flash Adept',
+    description: 'Land 2+ Black Flashes on your own build in a single clash',
+    icon: '✨',
+    check: (ctx) => ctx.playerBlackFlashes >= 2,
   },
 ];

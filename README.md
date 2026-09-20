@@ -22,11 +22,11 @@ JJK Stat Clash is a local multiplayer drafting game where 2–8 players build th
 
 ### Game Phases
 
-| Phase | Description |
-|-------|-------------|
-| **🚫 Ban Phase** | Each player bans 2 entities from the global pool |
+| Phase              | Description                                                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🚫 Ban Phase**   | Each player bans 2 entities from the global pool                                                                                                              |
 | **📋 Draft Phase** | Players fill 11 slots: Character stats (Strength, Speed, Durability, CE, Body, IQ), Cursed Technique, Tool, Shikigami, Domain Expansion, and 2 Special Powers |
-| **⚡ Clash** | Stats are compared head-to-head with synergy bonuses, Black Flash crits, Binding Vow modifiers, and Heavenly Restriction interactions |
+| **⚡ Clash**       | Stats are compared head-to-head with synergy bonuses, Black Flash crits, Binding Vow modifiers, and Heavenly Restriction interactions                         |
 
 ### Game Modes
 
@@ -46,6 +46,7 @@ JJK Stat Clash is a local multiplayer drafting game where 2–8 players build th
 - **Heavenly Restriction** — Zero CE/CT/DE but massive physical stat bonuses and domain immunity
 - **Domain Refinement** — IQ and CE contribute hidden bonuses to Domain Expansion clashes
 - **Match history** — Series tracking with win counters across multiple rounds
+- **Post-clash analysis** — Sorcerer grade evaluations, round ledger, and match highlights after every clash
 - **Cinematic transitions** — Full-screen phase transitions with kanji animations
 - **2–8 players** — Add or remove challengers dynamically
 - **Auto-fill** — Randomly populate empty slots for quick games
@@ -54,14 +55,14 @@ JJK Stat Clash is a local multiplayer drafting game where 2–8 players build th
 
 ## 🛠️ Tech Stack
 
-| Technology | Purpose |
-|-----------|---------|
-| [React 19](https://react.dev) | UI framework |
-| [TypeScript](https://www.typescriptlang.org) | Type safety |
-| [Vite](https://vitejs.dev) | Build tool & dev server |
-| [Tailwind CSS v4](https://tailwindcss.com) | Utility-first styling |
+| Technology                                   | Purpose                  |
+| -------------------------------------------- | ------------------------ |
+| [React 19](https://react.dev)                | UI framework             |
+| [TypeScript](https://www.typescriptlang.org) | Type safety              |
+| [Vite](https://vitejs.dev)                   | Build tool & dev server  |
+| [Tailwind CSS v4](https://tailwindcss.com)   | Utility-first styling    |
 | [Motion](https://motion.dev) (Framer Motion) | Animations & transitions |
-| [Lucide React](https://lucide.dev) | Icon library |
+| [Lucide React](https://lucide.dev)           | Icon library             |
 
 ---
 
@@ -130,33 +131,33 @@ jjk-stat-clash/
 <details>
 <summary><strong>Stat Categories (11 Slots)</strong></summary>
 
-| Slot | Category | Source |
-|------|----------|--------|
-| Strength | Character stat | Character |
-| Speed | Character stat | Character |
-| Durability | Character stat | Character |
-| Cursed Energy | Character stat | Character |
-| Body | Character stat | Character |
-| Battle IQ | Character stat | Character |
+| Slot             | Category        | Source           |
+| ---------------- | --------------- | ---------------- |
+| Strength         | Character stat  | Character        |
+| Speed            | Character stat  | Character        |
+| Durability       | Character stat  | Character        |
+| Cursed Energy    | Character stat  | Character        |
+| Body             | Character stat  | Character        |
+| Battle IQ        | Character stat  | Character        |
 | Cursed Technique | Technique power | Cursed Technique |
-| Cursed Tool | Tool power | Tool |
-| Shikigami | Summon power | Shikigami |
-| Domain Expansion | Domain power | Domain Expansion |
-| Special Power ×2 | Ability power | Special Power |
+| Cursed Tool      | Tool power      | Tool             |
+| Shikigami        | Summon power    | Shikigami        |
+| Domain Expansion | Domain power    | Domain Expansion |
+| Special Power ×2 | Ability power   | Special Power    |
 
 </details>
 
 <details>
 <summary><strong>Rarity Tiers</strong></summary>
 
-| Grade | Tier | Typical Stats |
-|-------|------|---------------|
-| Mythic | S | 120+ |
-| Legendary | A | 100–115 |
-| Epic | B | 85–95 |
-| Rare | C | 70–80 |
-| Uncommon | D | 55–65 |
-| Common | E | <50 |
+| Grade     | Tier | Typical Stats |
+| --------- | ---- | ------------- |
+| Mythic    | S    | 120+          |
+| Legendary | A    | 100–115       |
+| Epic      | B    | 85–95         |
+| Rare      | C    | 70–80         |
+| Uncommon  | D    | 55–65         |
+| Common    | E    | <50           |
 
 </details>
 

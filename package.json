@@ -11,7 +11,11 @@
     "deploy:party": "partykit deploy",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,css,md,json}": "prettier --write"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
@@ -31,9 +35,13 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
     "partykit": "^0.0.115",
+    "prettier": "^3.9.8",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^5.0.1"
   }
 }
