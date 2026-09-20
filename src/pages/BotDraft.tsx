@@ -114,11 +114,59 @@ export default function BotDraft() {
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration] = useState(120);
 
-  const allSelected = players.every((draft) => statsList.every((stat) => draft[stat] !== null));
+  const requiredStats = statsList.filter((s) => s !== 'bindingVow');
+
+  const getGamblePool = (playerIndex: number, stat: string): any[] => {
+    if (stat === 'bindingVow') return bindingVows as any[];
+    const draft = players[playerIndex];
+    const category = statCategoryMap[stat] || 'character';
+    return getAvailableEntities(draft[stat], category, draft);
+  };
+
+  const getRollableStats = (index: number) => {
+    const draft = players[index];
+    const state = gambleStates[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      if (state) {
+        if ((state.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return false;
+        if (stat !== 'bindingVow' && state.remainingTotal <= 0) return false;
+      }
+      return getGamblePool(index, stat).length > 0;
+    });
+  };
+
+  const getFillableStats = (index: number) => {
+    const draft = players[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      const category = statCategoryMap[stat] || 'character';
+      return getAvailableEntities(null, category, draft).length > 0;
+    });
+  };
+
+  // A draft counts as complete when every required stat is filled, or when the
+  // player has no legal way to fill the rest (empty pools / exhausted rolls) —
+  // otherwise the clash can be locked out forever. Binding Vow is optional.
+  const allSelected = players.every((draft, index) => {
+    if (requiredStats.every((stat) => draft[stat] !== null)) return true;
+    if (draftMode === 'gamble') return getRollableStats(index).length === 0;
+    return getFillableStats(index).length === 0;
+  });
 
   // Timer & Auto-Turn Logic
   useEffect(() => {
     if (draftPhase !== 'drafting' || allSelected) return;
+
+    // Dead turn: auto-skip when the active player has no legal picks
+    const hasMoves =
+      draftMode === 'gamble'
+        ? getRollableStats(activePlayer).length > 0 || !!activeRollingStat
+        : getFillableStats(activePlayer).length > 0;
+    if (!hasMoves) {
+      const skip = setTimeout(() => passTurn(), 600);
+      return () => clearTimeout(skip);
+    }
 
     if (activePlayer === 1 && difficulty) {
       const delay = 1000 + Math.random() * 2000;
@@ -139,7 +187,8 @@ export default function BotDraft() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [draftPhase, activePlayer, allSelected, players]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftPhase, activePlayer, allSelected, players, activeRollingStat]);
 
   const handleSaveDraft = () => setIsSaveConfirmOpen(true);
 
@@ -205,24 +254,21 @@ export default function BotDraft() {
           handleFinishGambleTurn();
           return;
         }
-        const statToRoll = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+        const rollableStats = emptyStats.filter(
+          (s) =>
+            (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+            (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
+            getGamblePool(1, s).length > 0
+        );
+        if (rollableStats.length === 0) {
+          passTurn();
+          return;
+        }
+        const statToRoll = rollableStats[Math.floor(Math.random() * rollableStats.length)];
         const category =
           statToRoll === 'bindingVow' ? 'bindingVow' : statCategoryMap[statToRoll] || 'character';
 
-        const selectedIds = new Set<string>();
-        players.forEach((d) => {
-          Object.values(d).forEach((id) => {
-            if (typeof id === 'string') selectedIds.add(id);
-          });
-        });
-        const globalBans = bans.flat().filter(Boolean);
-
-        let available = characters.filter((entity) => {
-          if (entity.category !== category) return false;
-          if (globalBans.includes(entity.id)) return false;
-          if (entity.id !== 'binding-vow' && selectedIds.has(entity.id)) return false;
-          return true;
-        });
+        let available = getGamblePool(1, statToRoll);
 
         if (available.length > 0) {
           const numRolls = Math.min(3, currentState.remainingTotal);
@@ -249,7 +295,10 @@ export default function BotDraft() {
           const newGambleStates = { ...gambleStates };
           newGambleStates[1] = {
             ...currentState,
-            remainingTotal: currentState.remainingTotal - numRolls,
+            remainingTotal:
+              statToRoll === 'bindingVow'
+                ? currentState.remainingTotal
+                : currentState.remainingTotal - numRolls,
             statRolls: {
               ...currentState.statRolls,
               [statToRoll]: (currentState.statRolls[statToRoll] || 0) + 1,
@@ -271,8 +320,18 @@ export default function BotDraft() {
       }
 
       // Easy difficulty logic
-      const statToRoll = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+      const rollableStats = emptyStats.filter(
+        (s) =>
+          (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+          (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
+          getGamblePool(1, s).length > 0
+      );
+      if (rollableStats.length === 0) {
+        passTurn();
+        return;
+      }
       if (!activeRollingStat) {
+        const statToRoll = rollableStats[Math.floor(Math.random() * rollableStats.length)];
         handleGambleRoll(1, statToRoll, false);
       } else {
         handleFinishGambleTurn();
@@ -311,25 +370,9 @@ export default function BotDraft() {
     if ((currentState.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return;
     if (isLucky && currentState.remainingLucky <= 0) return;
 
-    const draft = players[playerIndex];
     const category = stat === 'bindingVow' ? 'bindingVow' : statCategoryMap[stat] || 'character';
 
-    const selectedIds = new Set<string>();
-    players.forEach((d) => {
-      Object.values(d).forEach((id) => {
-        if (typeof id === 'string') selectedIds.add(id);
-      });
-    });
-    const globalBans = bans.flat().filter(Boolean);
-
-    let available = characters.filter((entity) => {
-      if (entity.category !== category) return false;
-      if (globalBans.includes(entity.id)) return false;
-      if (entity.id !== 'binding-vow' && selectedIds.has(entity.id)) return false;
-      return true;
-    });
-
-    if (stat === 'bindingVow') available = bindingVows as any;
+    let available = getGamblePool(playerIndex, stat);
 
     if (available.length === 0) return;
 
@@ -480,11 +523,11 @@ export default function BotDraft() {
     passTurn();
   };
 
-  const getAvailableEntities = (
+  function getAvailableEntities(
     currentSelectedId: string | null,
     category: string,
     draft: DraftSelection
-  ): Entity[] => {
+  ): Entity[] {
     const selectedIds = new Set<string>();
     players.forEach((d) => {
       Object.values(d).forEach((id) => {
@@ -507,7 +550,7 @@ export default function BotDraft() {
       }
       return true;
     });
-  };
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden flex flex-col items-center pb-20">
@@ -1019,6 +1062,14 @@ export default function BotDraft() {
                         ? 'Roll for a category'
                         : 'Select a category to draft'}
                     </div>
+                    {draftMode === 'gamble' && !activeRollingStat && (
+                      <button
+                        onClick={handleFinishGambleTurn}
+                        className="px-6 py-2 bg-zinc-900 border border-zinc-700 hover:border-red-500/60 text-zinc-400 hover:text-red-400 rounded-full font-mono text-xs uppercase tracking-widest transition-colors"
+                      >
+                        End Turn
+                      </button>
+                    )}
                     {draftMode === 'gamble' && (
                       <div className="flex items-center gap-6 bg-zinc-900/50 border border-zinc-800 px-6 py-3 rounded-full">
                         <div className="flex items-center gap-2">

@@ -343,9 +343,7 @@ export default function LocalDraft() {
     let nextPlayer = (currentTurnPlayer + 1) % players.length;
     let attempts = 0;
     while (attempts < players.length) {
-      const draft = players[nextPlayer];
-      const filled = statsList.every((s) => draft[s] !== null);
-      if (!filled) break;
+      if (!isPlayerDone(nextPlayer)) break;
       nextPlayer = (nextPlayer + 1) % players.length;
       attempts++;
     }
@@ -392,6 +390,47 @@ export default function LocalDraft() {
 
       return true;
     });
+  };
+
+  const requiredStats = statsList.filter((s) => s !== 'bindingVow');
+
+  const getGamblePool = (playerIndex: number, stat: string): any[] => {
+    if (stat === 'bindingVow') return bindingVows as any[];
+    const draft = players[playerIndex];
+    const category = statCategoryMap[stat] || 'character';
+    return getAvailableEntities(draft[stat], category, draft);
+  };
+
+  const getRollableStats = (index: number) => {
+    const draft = players[index];
+    const state = gambleStates[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      if (state) {
+        if ((state.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return false;
+        if (stat !== 'bindingVow' && state.remainingTotal <= 0) return false;
+      }
+      return getGamblePool(index, stat).length > 0;
+    });
+  };
+
+  const getFillableStats = (index: number) => {
+    const draft = players[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      const category = statCategoryMap[stat] || 'character';
+      return getAvailableEntities(null, category, draft).length > 0;
+    });
+  };
+
+  // A draft counts as complete when every required stat is filled, or when the
+  // player has no legal way to fill the rest (empty pools / exhausted rolls) —
+  // otherwise the clash can be locked out forever. Binding Vow is optional.
+  const isPlayerDone = (index: number) => {
+    const draft = players[index];
+    if (requiredStats.every((stat) => draft[stat] !== null)) return true;
+    if (draftMode === 'gamble') return getRollableStats(index).length === 0;
+    return getFillableStats(index).length === 0;
   };
 
   const handleAutoFill = () => {
@@ -483,15 +522,7 @@ export default function LocalDraft() {
     setDeleteConfirmId(null);
   };
 
-  const allSelected = players.every((draft, index) => {
-    const filled = statsList.every((stat) => draft[stat] !== null);
-    if (draftMode === 'gamble') {
-      const state = gambleStates[index];
-      const outOfRolls = state && state.remainingTotal <= 0;
-      return filled || outOfRolls;
-    }
-    return filled;
-  });
+  const allSelected = players.every((_, index) => isPlayerDone(index));
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30 relative overflow-x-hidden flex flex-col">
@@ -1139,6 +1170,22 @@ export default function LocalDraft() {
               </div>
 
               <div className="flex items-center gap-4">
+                {draftMode === 'gamble' && !allSelected && (
+                  <div className="flex items-center gap-3 mr-2">
+                    <span className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest animate-pulse">
+                      {players[currentTurnPlayer].playerName || `Player ${currentTurnPlayer + 1}`}'s
+                      Turn
+                    </span>
+                    {!activeRollingStat && (
+                      <button
+                        onClick={handleFinishGambleTurn}
+                        className="px-4 py-1.5 bg-zinc-900 border border-zinc-700 hover:border-red-500/60 text-zinc-400 hover:text-red-400 rounded-full font-mono text-[10px] uppercase tracking-widest transition-colors"
+                      >
+                        End Turn
+                      </button>
+                    )}
+                  </div>
+                )}
                 <DraftTimer
                   isActive={gameSettings.timerEnabled && draftPhase === 'drafting'}
                   duration={gameSettings.timerDuration}
