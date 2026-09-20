@@ -988,7 +988,7 @@ export default function BotDraft() {
                       key={index}
                       className={`relative ${activePlayer !== index ? 'opacity-60 pointer-events-none' : 'ring-4 ring-blue-500/50 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.2)]'}`}
                     >
-                      {index === 1 && activePlayer === 1 && (
+                      {index === 1 && activePlayer === 1 && !allSelected && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl">
                           <div className="bg-zinc-900 border border-red-500 p-4 rounded-xl flex items-center gap-3 animate-pulse">
                             <Cpu className="text-red-500" />

@@ -32,9 +32,8 @@ export function CursedConvergenceTransition({
   onPhaseSwap: () => void;
   onComplete: () => void;
 }) {
-  const randoms = useStableRandom(80);
-  let rngIndex = 0;
-  const rng = () => randoms[rngIndex++ % randoms.length];
+  const rnd = useStableRandom(96);
+  const rngAt = (k: number) => rnd[k % rnd.length];
 
   const [phase, setPhase] = useState<Phase>('summon');
 
@@ -141,7 +140,11 @@ export function CursedConvergenceTransition({
                       x: ['-10%', '10%', '-10%'],
                       y: ['-10%', '10%', '-10%'],
                     }}
-                    transition={{ duration: 3 + rng() * 2, repeat: Infinity, ease: 'easeInOut' }}
+                    transition={{
+                      duration: 3 + rngAt(i * 8) * 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
                   />
                   <motion.div
                     className="absolute w-2 md:w-3 h-[200%] bg-white transform -skew-x-[15deg] shadow-[0_0_20px_rgba(255,255,255,0.8)]"
@@ -151,7 +154,11 @@ export function CursedConvergenceTransition({
                       willChange: 'opacity, transform',
                     }}
                     animate={{ y: ['0%', '-50%'], opacity: [0.1, 0.9, 0.1] }}
-                    transition={{ duration: 0.3 + rng() * 0.2, repeat: Infinity, ease: 'linear' }}
+                    transition={{
+                      duration: 0.3 + rngAt(i * 8 + 1) * 0.2,
+                      repeat: Infinity,
+                      ease: 'linear',
+                    }}
                   />
                 </div>
 
@@ -287,7 +294,9 @@ export function CursedConvergenceTransition({
               className="absolute top-1/2 h-[6px] w-[55vw] pointer-events-none z-[55]"
               style={{
                 left: fromLeft ? '-5%' : '50%',
-                background: `linear-gradient(90deg, transparent, ${color} 60%, #fff)`,
+                background: fromLeft
+                  ? `linear-gradient(90deg, transparent, ${color} 60%, #fff)`
+                  : `linear-gradient(270deg, transparent, ${color} 60%, #fff)`,
                 boxShadow: `0 0 30px ${color}`,
                 transformOrigin: fromLeft ? 'right center' : 'left center',
                 rotate: 0,

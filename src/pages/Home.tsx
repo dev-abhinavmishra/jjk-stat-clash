@@ -467,7 +467,7 @@ export default function Home() {
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: [0, 1.4, 1], opacity: [0, 0.85, 0.5] }}
                 transition={{ duration: 0.9, delay: 0.25, ease: 'easeOut' }}
-                className="absolute z-[25] flex items-center justify-center"
+                className="absolute inset-0 z-[25] flex items-center justify-center"
               >
                 <BarrierRings size={360} color="rgba(220,38,38,0.35)" spinDuration={12} />
               </motion.div>

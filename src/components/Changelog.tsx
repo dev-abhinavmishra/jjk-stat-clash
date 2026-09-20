@@ -6,9 +6,9 @@ const changelogData = [
   {
     version: 'v1.6.0',
     date: 'September 20, 2026',
-    title: 'Post-Clash Analysis Protocol',
+    title: 'Sealing Protocol & Cinematic Overhaul',
     description:
-      'Match intelligence upgrade — every clash now concludes with a full analytical debrief and sorcerer grade evaluations.',
+      'A full-ceremony update — the Ban Phase is rebuilt as a Sealing Protocol, every transition becomes a cinematic sequence, clashes end with a post-match debrief and sorcerer grades, and a wave of draft/gamble lock-out fixes lands underneath.',
     items: [
       'Added Post-Clash Analysis report displayed after every finished clash across all game modes',
       'Introduced Sorcerer Grade evaluations (Special Grade through Grade 4) based on final score performance',
@@ -44,6 +44,7 @@ const changelogData = [
       'Active clash rows now sweep with a traveling cursed-energy highlight and a pulsing border',
       'Reworked the loading spinner into a rotating cursed seal — counter-rotating dashed ring, sweeping arc, and a pulsing 呪 core',
       'Added a shared TransitionFX library — ember particles, shock rings, slash streaks, lightning arcs, barrier rings, and halo rays reused across all cinematic sequences',
+      'Polish: the AI thinking overlay now clears the moment the draft completes, and gamble lock buttons fade in cleanly instead of overlapping their neighbors',
       'Updated build version display to v1.6.0',
     ],
   },

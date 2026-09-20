@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'motion/react';
 
 /**
@@ -7,15 +7,15 @@ import { motion } from 'motion/react';
  * inside a relatively-positioned container.
  */
 
-// Deterministic per-mount RNG: StrictMode double-render keeps the same
-// particle layout instead of reshuffling between the two passes.
-export function useStableRandom(count: number = 64): () => number {
+// Deterministic per-mount random table: index-based lookup so re-renders
+// (and StrictMode's double pass) keep the same particle layout instead of
+// reshuffling between renders.
+export function useStableRandom(count: number = 64): number[] {
   const ref = useRef<number[]>([]);
   if (ref.current.length === 0) {
     for (let i = 0; i < count; i++) ref.current.push(Math.random());
   }
-  const idx = useRef(0);
-  return useCallback(() => ref.current[idx.current++ % ref.current.length], []);
+  return ref.current;
 }
 
 /** Floating cursed-energy embers rising from the bottom edge. */
@@ -28,15 +28,16 @@ export function CursedEmbers({
   color?: string;
   maxDelay?: number;
 }) {
-  const rng = useStableRandom(count * 5);
+  const rnd = useStableRandom(count * 6);
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {Array.from({ length: count }).map((_, i) => {
-        const size = 2 + rng() * 4;
-        const x = rng() * 100;
-        const dur = 1.8 + rng() * 2.2;
-        const delay = rng() * maxDelay;
-        const drift = (rng() - 0.5) * 140;
+        const size = 2 + rnd[i * 6] * 4;
+        const x = rnd[i * 6 + 1] * 100;
+        const dur = 1.8 + rnd[i * 6 + 2] * 2.2;
+        const delay = rnd[i * 6 + 3] * maxDelay;
+        const drift = (rnd[i * 6 + 4] - 0.5) * 140;
+        const repeatDelay = rnd[i * 6 + 5] * 1.4;
         return (
           <motion.span
             key={i}
@@ -55,7 +56,7 @@ export function CursedEmbers({
               duration: dur,
               delay,
               repeat: Infinity,
-              repeatDelay: rng() * 1.4,
+              repeatDelay,
               ease: 'easeIn',
             }}
           />
@@ -135,15 +136,16 @@ export function LightningArcs({
   color?: string;
   delay?: number;
 }) {
-  const rng = useStableRandom(count * 10);
+  const rnd = useStableRandom(count * 16);
   const bolts = Array.from({ length: count }).map((_, i) => {
-    const angle = (i / count) * Math.PI * 2 + (rng() - 0.5) * 0.8;
-    const segs = 4 + Math.floor(rng() * 3);
+    const base = i * 16;
+    const angle = (i / count) * Math.PI * 2 + (rnd[base] - 0.5) * 0.8;
+    const segs = 4 + Math.floor(rnd[base + 1] * 3);
     let d = 'M 0 0';
     let dist = 40;
     for (let s = 0; s < segs; s++) {
-      dist += 140 + rng() * 200;
-      const jitter = (rng() - 0.5) * 260;
+      dist += 140 + rnd[base + 2 + s * 2] * 200;
+      const jitter = (rnd[base + 3 + s * 2] - 0.5) * 260;
       const x = Math.cos(angle) * dist + Math.cos(angle + Math.PI / 2) * jitter;
       const y = Math.sin(angle) * dist + Math.sin(angle + Math.PI / 2) * jitter;
       d += ` L ${x.toFixed(0)} ${y.toFixed(0)}`;
