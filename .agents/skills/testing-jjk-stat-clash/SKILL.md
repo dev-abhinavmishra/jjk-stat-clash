@@ -8,6 +8,7 @@ description: How to run and end-to-end test JJK Stat Clash locally (Vite dev ser
 ## Dev server
 
 - `npm run dev` from the repo root — Vite serves on **port 3000** (`vite --port=3000 --host=0.0.0.0`). Open http://localhost:3000.
+- If the `npm`/`npx` Git Bash shims are broken on the machine, invoke Vite directly: `node node_modules/vite/bin/vite.js --port=3000 --host=0.0.0.0` (or use `npm.cmd`/`npx.cmd`).
 - Local mode (`/play` → Standard Protocol) needs **no backend**. Ignore Firebase/leaderboard warnings in the console — they are expected offline noise.
 - Console in dev only logs Vite HMR + Vercel Analytics debug lines; any real `error`/`warning` entry is a genuine finding.
 
@@ -43,3 +44,20 @@ description: How to run and end-to-end test JJK Stat Clash locally (Vite dev ser
 ## Version labels
 
 - Home page footer shows the build label (`Build: Production X.Y.Z`); `GameFooter` on the /play start screen has its own copy — check both match.
+
+## Vs-bot draft (/play/bot → BotDraft.tsx)
+
+- Setup: /play → "Vs Bot" → difficulty card (Grade 4=easy, Grade 1=medium, Special Grade=hard) → "Standard" (normal draft) or "Cursed Lottery" (gamble: roll-pool config sliders → "Confirm Vow").
+- Turn timer is `TURN_TIME_SECONDS = 30`; it ticks for BOTH players. On expiry `executeAutoTurn` fires once (auto-pick for human, auto-turn for bot) and passes turn exactly once — verify by counting filled stats before/after an expiry: a correct expiry is +1 stat for the expiring player, then the other side acts. If +2 stats appear for the human and the turn bounces back to them, the StrictMode double-fire bug is back.
+- Bot picks ~1-3s after its turn starts ("BOT TURN" pill + "AI IS THINKING..." overlay on its card). A healthy bot turn never needs the full 30s.
+- Fastest way to exercise the expiry path: just idle — each 30s expiry auto-picks and hands off cleanly; you can verify many cycles hands-free. Manual picks via SearchableSelect work too but tool round-trips often race the 30s clock.
+- Gamble mode quirks: each stat row has ROLL/LUCKY buttons; a "Lock" button appears on the row while a roll is active; an "End Turn" button renders below System Protocol during the human's turn. When a player's roll pool hits 0 they have no rollable stats — their turns auto-skip in ~600ms (you'll see the turn ping-pong instantly) and `allSelected` treats them as done, so Clash! unlocks once both sides are exhausted even with stat rows still "Awaiting Roll...".
+- **Known defect (verify before re-testing):** BotDraft does not pass `gambleConfig` to the human's `PlayerCard`, so the human's ROLL/LUCKY buttons render disabled — the human can only act via expiry auto-rolls and End Turn. If still unfixed, configure Global Roll Pool=10 (min) so auto-rolls exhaust quickly, and let expiries drive the draft.
+
+## BanPhase (Sealing Protocol) quirks
+
+- Renders per-player "Seal Entity N" selects, a "Seals Placed x / 2N" progress bar, and a seal registry strip once seals exist. In vs-bot the bot card is read-only ("AUTO" pill) and auto-mirrors the human's seals.
+- `playerComplete` gates "Begin Draft" on `sealedBy(i) >= banCount` (fixed in db7c4c9). If you see it enabled at 0 seals with a "N seals remaining" label missing, the vacuous-`.every()` regression is back.
+- Seal dropdowns open downward past the card edge and can overlap the Seal Registry strip. Hit-testing over the registry was fixed in 5cbf3db (card grid no longer z-caps `focus-within:z-50`). If a click on a visible option dismisses the dropdown without selecting, check `document.elementFromPoint` at the option's rect — if it returns a registry element instead of the option, the stacking regression is back. Natural top-down fill order should work.
+- The seal SearchableSelect keeps its previous search text on reopen — clear the field (triple-click) before typing a new fragment or you'll get "No matches found" from the concatenated query.
+- LocalDraft honors "Custom Rules" → "Bans per player" 1/2/3 — header text, per-player slot count, and the "/2N" progress total should all match the configured count.

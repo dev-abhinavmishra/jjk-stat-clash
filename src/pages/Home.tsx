@@ -18,6 +18,7 @@ import {
 import { ChangelogModal } from '../components/Changelog';
 import { HowToPlayTutorial } from '../components/HowToPlayTutorial';
 import { APP_VERSION } from '../utils/gameSettings';
+import { BarrierRings, LightningArcs, CursedEmbers, ShockRing } from '../components/TransitionFX';
 
 export default function Home() {
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -461,6 +462,26 @@ export default function Home() {
                 }}
               />
 
+              {/* Expanding domain barrier rings behind the burst */}
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: [0, 1.4, 1], opacity: [0, 0.85, 0.5] }}
+                transition={{ duration: 0.9, delay: 0.25, ease: 'easeOut' }}
+                className="absolute z-[25] flex items-center justify-center"
+              >
+                <BarrierRings size={360} color="rgba(220,38,38,0.35)" spinDuration={12} />
+              </motion.div>
+
+              {/* Domain shockwaves */}
+              <ShockRing delay={0.2} color="rgba(255,255,255,0.6)" maxScale={7} />
+              <ShockRing delay={0.45} color="rgba(220,38,38,0.6)" maxScale={9} />
+
+              {/* Cursed lightning crawling over the domain */}
+              <div className="absolute inset-0 z-[35] pointer-events-none">
+                <LightningArcs count={6} color="#ef4444" delay={1.1} />
+                <LightningArcs count={5} color="#ffffff" delay={1.7} />
+              </div>
+
               {/* Slash Layer */}
               <motion.div
                 initial={{ scaleX: 0 }}
@@ -499,6 +520,11 @@ export default function Home() {
                   展開
                 </span>
               </motion.div>
+
+              {/* Embers rising through the domain */}
+              <div className="absolute inset-0 z-[38] pointer-events-none">
+                <CursedEmbers count={22} maxDelay={1.2} />
+              </div>
             </motion.div>
 
             {/* Final Flash to White */}
