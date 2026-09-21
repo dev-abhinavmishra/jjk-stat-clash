@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { characters, statsList, statLabels, statCategoryMap, Entity } from '../data/characters';
-import { PlayerCard, DraftSelection, SearchableSelect, bindingVows } from '../components/PlayerCard';
+import {
+  PlayerCard,
+  DraftSelection,
+  SearchableSelect,
+  bindingVows,
+} from '../components/PlayerCard';
 import { DraftTimer } from '../components/DraftTimer';
 import { AchievementsModal } from '../components/Achievements';
 import { StatsModal } from '../components/StatsModal';
@@ -13,17 +18,44 @@ import { HowToPlayTutorial } from '../components/HowToPlayTutorial';
 import { FeedbackSystem } from '../components/FeedbackSystem';
 import { motion, AnimatePresence } from 'motion/react';
 import { SystemProtocol } from '../components/SystemProtocol';
-import { Swords, Ban, CheckCircle2, Trophy, Clock, Cpu, ArrowLeft, Dices, Sparkles, Target, Zap, Shield, AlertTriangle, Skull, X, HelpCircle } from 'lucide-react';
+import { BanPhase } from '../components/BanPhase';
+import {
+  Swords,
+  Ban,
+  CheckCircle2,
+  Trophy,
+  Clock,
+  Cpu,
+  ArrowLeft,
+  Dices,
+  Sparkles,
+  Target,
+  Zap,
+  Shield,
+  AlertTriangle,
+  Skull,
+  X,
+  HelpCircle,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getBotPick } from '../utils/botLogic';
-import { saveDraft, saveFullGameState, loadFullGameState, getSavedDrafts, deleteDraft, SavedDraft } from '../utils/draftStorage';
+import {
+  saveDraft,
+  saveFullGameState,
+  loadFullGameState,
+  getSavedDrafts,
+  deleteDraft,
+  SavedDraft,
+} from '../utils/draftStorage';
 import { Helmet } from 'react-helmet-async';
 
 const TURN_TIME_SECONDS = 30;
 
 const emptyDraft = (): DraftSelection => {
   const draft: Partial<DraftSelection> = {};
-  statsList.forEach(stat => { draft[stat] = null; });
+  statsList.forEach((stat) => {
+    draft[stat] = null;
+  });
   return draft as DraftSelection;
 };
 
@@ -31,7 +63,11 @@ export default function BotDraft() {
   const navigate = useNavigate();
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard' | null>(null);
   const [draftMode, setDraftMode] = useState<'normal' | 'gamble'>('normal');
-  const [gambleConfig, setGambleConfig] = useState({ totalRolls: 50, luckyRolls: 10, rollsPerStat: 5 });
+  const [gambleConfig, setGambleConfig] = useState({
+    totalRolls: 50,
+    luckyRolls: 10,
+    rollsPerStat: 5,
+  });
   interface GambleState {
     remainingTotal: number;
     remainingLucky: number;
@@ -40,11 +76,13 @@ export default function BotDraft() {
 
   const [gambleStates, setGambleStates] = useState<Record<number, GambleState>>({
     0: { remainingTotal: 50, remainingLucky: 10, statRolls: {} },
-    1: { remainingTotal: 50, remainingLucky: 10, statRolls: {} }
+    1: { remainingTotal: 50, remainingLucky: 10, statRolls: {} },
   });
 
   const [players, setPlayers] = useState<DraftSelection[]>([emptyDraft(), emptyDraft()]);
-  const [draftPhase, setDraftPhase] = useState<'setup' | 'gambleConfig' | 'banning' | 'drafting' | 'comparing' | 'transitioning'>('setup');
+  const [draftPhase, setDraftPhase] = useState<
+    'setup' | 'gambleConfig' | 'banning' | 'drafting' | 'comparing' | 'transitioning'
+  >('setup');
   const [bans, setBans] = useState<string[][]>([[], []]);
   const [roundWins, setRoundWins] = useState<number[]>([0, 0]);
   const [matchHistory, setMatchHistory] = useState<any[]>([]);
@@ -54,7 +92,16 @@ export default function BotDraft() {
   const [activeRollingStat, setActiveRollingStat] = useState<string | null>(null);
   const [extraTurns, setExtraTurns] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_SECONDS);
-  const [activeOverlay, setActiveOverlay] = useState<'ban' | 'clash' | 'startToBan' | 'startToDraft' | 'banToDraft' | 'transitioning' | 'gambleConfig' | null>(null);
+  const [activeOverlay, setActiveOverlay] = useState<
+    | 'ban'
+    | 'clash'
+    | 'startToBan'
+    | 'startToDraft'
+    | 'banToDraft'
+    | 'transitioning'
+    | 'gambleConfig'
+    | null
+  >(null);
   const [isSavedDraftsOpen, setIsSavedDraftsOpen] = useState(false);
   const [savedDrafts, setSavedDrafts] = useState<SavedDraft[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -67,32 +114,90 @@ export default function BotDraft() {
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration] = useState(120);
 
-  const allSelected = players.every(draft => statsList.every(stat => draft[stat] !== null));
+  const requiredStats = statsList.filter((s) => s !== 'bindingVow');
+
+  const getGamblePool = (playerIndex: number, stat: string): any[] => {
+    if (stat === 'bindingVow') return bindingVows as any[];
+    const draft = players[playerIndex];
+    const category = statCategoryMap[stat] || 'character';
+    return getAvailableEntities(draft[stat], category, draft);
+  };
+
+  const getRollableStats = (index: number) => {
+    const draft = players[index];
+    const state = gambleStates[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      if (state) {
+        if ((state.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return false;
+        if (stat !== 'bindingVow' && state.remainingTotal <= 0) return false;
+      }
+      return getGamblePool(index, stat).length > 0;
+    });
+  };
+
+  const getFillableStats = (index: number) => {
+    const draft = players[index];
+    return requiredStats.filter((stat) => {
+      if (draft[stat]) return false;
+      const category = statCategoryMap[stat] || 'character';
+      return getAvailableEntities(null, category, draft).length > 0;
+    });
+  };
+
+  // A draft counts as complete when every required stat is filled, or when the
+  // player has no legal way to fill the rest (empty pools / exhausted rolls) —
+  // otherwise the clash can be locked out forever. Binding Vow is optional.
+  const allSelected = players.every((draft, index) => {
+    if (requiredStats.every((stat) => draft[stat] !== null)) return true;
+    if (draftMode === 'gamble') return getRollableStats(index).length === 0;
+    return getFillableStats(index).length === 0;
+  });
 
   // Timer & Auto-Turn Logic
   useEffect(() => {
     if (draftPhase !== 'drafting' || allSelected) return;
 
-    if (activePlayer === 1 && difficulty) {
-      const delay = 1000 + Math.random() * 2000;
-      const botTimer = setTimeout(() => {
-        executeBotTurnRef.current();
-      }, delay);
-      return () => clearTimeout(botTimer);
+    // Dead turn: auto-skip when the active player has no legal picks
+    const hasMoves =
+      draftMode === 'gamble'
+        ? getRollableStats(activePlayer).length > 0 || !!activeRollingStat
+        : getFillableStats(activePlayer).length > 0;
+    if (!hasMoves) {
+      const skip = setTimeout(() => passTurn(), 600);
+      return () => clearTimeout(skip);
     }
 
+    // The countdown ticks on every player's turn; hitting 0 auto-picks for
+    // whoever is active (see the expiry effect below), so a bot turn that
+    // produces no action still resolves instead of hanging.
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setTimeout(() => executeAutoTurnRef.current(0), 0);
-          return TURN_TIME_SECONDS;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [draftPhase, activePlayer, allSelected, players]);
+    let botTimer: ReturnType<typeof setTimeout> | undefined;
+    if (activePlayer === 1 && difficulty) {
+      const delay = 1000 + Math.random() * 2000;
+      botTimer = setTimeout(() => {
+        executeBotTurnRef.current();
+      }, delay);
+    }
+
+    return () => {
+      clearInterval(timer);
+      if (botTimer) clearTimeout(botTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftPhase, activePlayer, allSelected, players, activeRollingStat]);
+
+  // Turn expiry auto-pick. This must NOT live inside the setTimeLeft updater:
+  // StrictMode double-invokes updaters in dev, which fired the auto-turn
+  // twice — two human picks plus two passTurns (net zero) starved the bot.
+  useEffect(() => {
+    if (draftPhase !== 'drafting' || allSelected || timeLeft > 0) return;
+    executeAutoTurnRef.current(activePlayer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, draftPhase, allSelected, activePlayer]);
 
   const handleSaveDraft = () => setIsSaveConfirmOpen(true);
 
@@ -107,8 +212,8 @@ export default function BotDraft() {
   const handleLoadDraft = (saved: SavedDraft) => {
     const state = loadFullGameState(saved.id);
     if (state) {
-      setPlayers(state.players.map(p => ({ ...p })));
-      setBans(state.bans.map(b => [...b]));
+      setPlayers(state.players.map((p) => ({ ...p })));
+      setBans(state.bans.map((b) => [...b]));
     }
     setIsSavedDraftsOpen(false);
   };
@@ -123,12 +228,16 @@ export default function BotDraft() {
 
   const executeBotTurnRef = useRef<() => void>(() => {});
   const executeAutoTurnRef = useRef<(pIndex: number) => void>(() => {});
+  // Deferred callbacks read this instead of the stale render-time value so a
+  // turn that already advanced can't be finished/passed a second time.
+  const activePlayerRef = useRef(activePlayer);
+  activePlayerRef.current = activePlayer;
 
   const executeBotTurn = () => {
     if (!difficulty) return;
 
     if (draftMode === 'gamble') {
-      const emptyStats = statsList.filter(stat => !players[1][stat]);
+      const emptyStats = statsList.filter((stat) => !players[1][stat]);
       if (emptyStats.length === 0) {
         passTurn();
         return;
@@ -138,8 +247,10 @@ export default function BotDraft() {
 
       if (difficulty === 'hard') {
         const takenIds = new Set<string>();
-        players.forEach(draft => {
-          Object.values(draft).forEach(id => { if (typeof id === 'string') takenIds.add(id); });
+        players.forEach((draft) => {
+          Object.values(draft).forEach((id) => {
+            if (typeof id === 'string') takenIds.add(id);
+          });
         });
         const globalBans = bans.flat().filter(Boolean);
         const pick = getBotPick(difficulty, players[1], [players[0]], globalBans, takenIds);
@@ -156,21 +267,21 @@ export default function BotDraft() {
           handleFinishGambleTurn();
           return;
         }
-        const statToRoll = emptyStats[Math.floor(Math.random() * emptyStats.length)];
-        const category = statToRoll === 'bindingVow' ? 'bindingVow' : (statCategoryMap[statToRoll] || 'character');
-        
-        const selectedIds = new Set<string>();
-        players.forEach(d => {
-          Object.values(d).forEach(id => { if (typeof id === 'string') selectedIds.add(id); });
-        });
-        const globalBans = bans.flat().filter(Boolean);
+        const rollableStats = emptyStats.filter(
+          (s) =>
+            (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+            (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
+            getGamblePool(1, s).length > 0
+        );
+        if (rollableStats.length === 0) {
+          passTurn();
+          return;
+        }
+        const statToRoll = rollableStats[Math.floor(Math.random() * rollableStats.length)];
+        const category =
+          statToRoll === 'bindingVow' ? 'bindingVow' : statCategoryMap[statToRoll] || 'character';
 
-        let available = characters.filter(entity => {
-          if (entity.category !== category) return false;
-          if (globalBans.includes(entity.id)) return false;
-          if (entity.id !== 'binding-vow' && selectedIds.has(entity.id)) return false;
-          return true;
-        });
+        let available = getGamblePool(1, statToRoll);
 
         if (available.length > 0) {
           const numRolls = Math.min(3, currentState.remainingTotal);
@@ -180,11 +291,14 @@ export default function BotDraft() {
           for (let i = 0; i < numRolls; i++) {
             let roll = available[Math.floor(Math.random() * available.length)];
             if (category === 'character' && Math.random() < 0.3) {
-              const humanEntity = available.find(c => c.id === 'human');
+              const humanEntity = available.find((c) => c.id === 'human');
               if (humanEntity) roll = humanEntity as any;
             }
-            
-            const power = ('statValue' in roll ? roll.statValue : roll.stats?.[statToRoll as keyof typeof roll.stats]) || 50;
+
+            const power =
+              ('statValue' in roll
+                ? roll.statValue
+                : roll.stats?.[statToRoll as keyof typeof roll.stats]) || 50;
             if (power > bestPower) {
               bestPower = power;
               bestEntity = roll;
@@ -194,8 +308,14 @@ export default function BotDraft() {
           const newGambleStates = { ...gambleStates };
           newGambleStates[1] = {
             ...currentState,
-            remainingTotal: currentState.remainingTotal - numRolls,
-            statRolls: { ...currentState.statRolls, [statToRoll]: (currentState.statRolls[statToRoll] || 0) + 1 }
+            remainingTotal:
+              statToRoll === 'bindingVow'
+                ? currentState.remainingTotal
+                : currentState.remainingTotal - numRolls,
+            statRolls: {
+              ...currentState.statRolls,
+              [statToRoll]: (currentState.statRolls[statToRoll] || 0) + 1,
+            },
           };
           setGambleStates(newGambleStates);
 
@@ -203,9 +323,11 @@ export default function BotDraft() {
           newPlayers[1] = { ...newPlayers[1], [statToRoll]: bestEntity.id };
           newPlayers[1] = validateDraft(newPlayers[1]);
           setPlayers(newPlayers);
-          
+
           if (!activeRollingStat) setActiveRollingStat(statToRoll);
-          setTimeout(() => handleFinishGambleTurn(), 500);
+          setTimeout(() => {
+            if (activePlayerRef.current === 1) handleFinishGambleTurn();
+          }, 500);
         } else {
           passTurn();
         }
@@ -213,8 +335,18 @@ export default function BotDraft() {
       }
 
       // Easy difficulty logic
-      const statToRoll = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+      const rollableStats = emptyStats.filter(
+        (s) =>
+          (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+          (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
+          getGamblePool(1, s).length > 0
+      );
+      if (rollableStats.length === 0) {
+        passTurn();
+        return;
+      }
       if (!activeRollingStat) {
+        const statToRoll = rollableStats[Math.floor(Math.random() * rollableStats.length)];
         handleGambleRoll(1, statToRoll, false);
       } else {
         handleFinishGambleTurn();
@@ -223,8 +355,8 @@ export default function BotDraft() {
     }
 
     const takenIds = new Set<string>();
-    players.forEach(draft => {
-      Object.values(draft).forEach(id => {
+    players.forEach((draft) => {
+      Object.values(draft).forEach((id) => {
         if (typeof id === 'string') takenIds.add(id);
       });
     });
@@ -253,23 +385,9 @@ export default function BotDraft() {
     if ((currentState.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return;
     if (isLucky && currentState.remainingLucky <= 0) return;
 
-    const draft = players[playerIndex];
-    const category = stat === 'bindingVow' ? 'bindingVow' : (statCategoryMap[stat] || 'character');
+    const category = stat === 'bindingVow' ? 'bindingVow' : statCategoryMap[stat] || 'character';
 
-    const selectedIds = new Set<string>();
-    players.forEach(d => {
-      Object.values(d).forEach(id => { if (typeof id === 'string') selectedIds.add(id); });
-    });
-    const globalBans = bans.flat().filter(Boolean);
-
-    let available = characters.filter(entity => {
-      if (entity.category !== category) return false;
-      if (globalBans.includes(entity.id)) return false;
-      if (entity.id !== 'binding-vow' && selectedIds.has(entity.id)) return false;
-      return true;
-    });
-
-    if (stat === 'bindingVow') available = bindingVows as any;
+    let available = getGamblePool(playerIndex, stat);
 
     if (available.length === 0) return;
 
@@ -291,16 +409,21 @@ export default function BotDraft() {
 
     let randomEntity = available[Math.floor(Math.random() * available.length)];
     if (category === 'character' && !isLucky && Math.random() < 0.3) {
-      const humanEntity = available.find(c => c.id === 'human');
+      const humanEntity = available.find((c) => c.id === 'human');
       if (humanEntity) randomEntity = humanEntity as any;
     }
 
     const newGambleStates = { ...gambleStates };
     newGambleStates[playerIndex] = {
       ...currentState,
-      remainingTotal: isVow ? Number(currentState.remainingTotal) : Number(currentState.remainingTotal) - 1,
-      remainingLucky: (isLucky && !isVow) ? Number(currentState.remainingLucky) - 1 : Number(currentState.remainingLucky),
-      statRolls: { ...currentState.statRolls, [stat]: (currentState.statRolls[stat] || 0) + 1 }
+      remainingTotal: isVow
+        ? Number(currentState.remainingTotal)
+        : Number(currentState.remainingTotal) - 1,
+      remainingLucky:
+        isLucky && !isVow
+          ? Number(currentState.remainingLucky) - 1
+          : Number(currentState.remainingLucky),
+      statRolls: { ...currentState.statRolls, [stat]: (currentState.statRolls[stat] || 0) + 1 },
     };
     setGambleStates(newGambleStates);
 
@@ -314,16 +437,16 @@ export default function BotDraft() {
     }
 
     if (stat === 'bindingVow' && randomEntity.id) {
-       setExtraTurns(prev => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
-       handleFinishGambleTurn();
+      setExtraTurns((prev) => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
+      handleFinishGambleTurn();
     }
   };
 
   const handleFinishGambleTurn = () => {
     setActiveRollingStat(null);
-    
+
     if (extraTurns[activePlayer] > 0) {
-      setExtraTurns(prev => ({ ...prev, [activePlayer]: prev[activePlayer] - 1 }));
+      setExtraTurns((prev) => ({ ...prev, [activePlayer]: prev[activePlayer] - 1 }));
       setTimeLeft(TURN_TIME_SECONDS);
       return;
     }
@@ -337,39 +460,29 @@ export default function BotDraft() {
         handleFinishGambleTurn();
         return;
       }
-      const emptyStats = statsList.filter(stat => !players[pIndex][stat]);
-      if (emptyStats.length === 0) {
+      const rollableStats = getRollableStats(pIndex);
+      if (rollableStats.length === 0) {
         handleFinishGambleTurn();
         return;
       }
-      const randomStat = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+      const randomStat = rollableStats[Math.floor(Math.random() * rollableStats.length)];
       handleGambleRoll(pIndex, randomStat, false);
       // After auto-roll, immediately finish turn
-      setTimeout(() => handleFinishGambleTurn(), 500);
+      setTimeout(() => {
+        if (activePlayerRef.current === pIndex) handleFinishGambleTurn();
+      }, 500);
       return;
     }
 
-    const takenIds = new Set<string>();
-    players.forEach(draft => {
-      Object.values(draft).forEach(id => { if (typeof id === 'string') takenIds.add(id); });
-    });
-    const globalBans = bans.flat().filter(Boolean);
-
-    const emptyStats = statsList.filter(stat => !players[pIndex][stat]);
-    if (emptyStats.length === 0) {
+    const fillableStats = getFillableStats(pIndex);
+    if (fillableStats.length === 0) {
       passTurn();
       return;
     }
 
-    const randomStat = emptyStats[Math.floor(Math.random() * emptyStats.length)];
+    const randomStat = fillableStats[Math.floor(Math.random() * fillableStats.length)];
     const category = statCategoryMap[randomStat] || 'character';
-
-    const available = characters.filter(entity => {
-      if (entity.category !== category) return false;
-      if (globalBans.includes(entity.id)) return false;
-      if (entity.id !== 'binding-vow' && takenIds.has(entity.id)) return false;
-      return true;
-    });
+    const available = getAvailableEntities(null, category, players[pIndex]);
 
     if (available.length > 0) {
       const pick = available[Math.floor(Math.random() * available.length)];
@@ -381,16 +494,16 @@ export default function BotDraft() {
   executeAutoTurnRef.current = executeAutoTurn;
 
   const passTurn = () => {
-    setActivePlayer(prev => (prev === 0 ? 1 : 0));
+    setActivePlayer((prev) => (prev === 0 ? 1 : 0));
     setTimeLeft(TURN_TIME_SECONDS);
   };
 
   const validateDraft = (draft: DraftSelection) => {
     const newDraft = { ...draft };
-    statsList.forEach(s => {
+    statsList.forEach((s) => {
       const selectedId = newDraft[s];
       if (selectedId) {
-        const entity = characters.find(c => c.id === selectedId);
+        const entity = characters.find((c) => c.id === selectedId);
         if (entity && 'prerequisite' in entity && entity.prerequisite) {
           if (!Object.values(newDraft).includes(entity.prerequisite)) newDraft[s] = null;
         }
@@ -413,35 +526,50 @@ export default function BotDraft() {
     passTurn();
   };
 
-  const getAvailableEntities = (currentSelectedId: string | null, category: string, draft: DraftSelection): Entity[] => {
+  function getAvailableEntities(
+    currentSelectedId: string | null,
+    category: string,
+    draft: DraftSelection
+  ): Entity[] {
     const selectedIds = new Set<string>();
-    players.forEach(d => {
-      Object.values(d).forEach(id => { if (typeof id === 'string') selectedIds.add(id); });
+    players.forEach((d) => {
+      Object.values(d).forEach((id) => {
+        if (typeof id === 'string') selectedIds.add(id);
+      });
     });
     const globalBans = bans.flat().filter(Boolean);
 
-    return characters.filter(entity => {
+    return characters.filter((entity) => {
       if (entity.category !== category) return false;
       if (globalBans.includes(entity.id) && entity.id !== currentSelectedId) return false;
-      if (entity.id !== 'binding-vow' && selectedIds.has(entity.id) && entity.id !== currentSelectedId) return false;
+      if (
+        entity.id !== 'binding-vow' &&
+        selectedIds.has(entity.id) &&
+        entity.id !== currentSelectedId
+      )
+        return false;
       if ('prerequisite' in entity && entity.prerequisite) {
         if (!Object.values(draft).includes(entity.prerequisite)) return false;
       }
       return true;
     });
-  };
-
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden flex flex-col items-center pb-20">
-      <Helmet><title>Vs Bot | JJK Stat Clash</title></Helmet>
-      
+      <Helmet>
+        <title>Vs Bot | JJK Stat Clash</title>
+      </Helmet>
+
       {/* Background elements common to all phases */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1)_0%,transparent_50%)] pointer-events-none z-0"></div>
 
       {draftPhase === 'setup' ? (
         <div className="flex-1 flex items-center justify-center relative py-20 px-4 w-full">
-          <button onClick={() => navigate('/play')} className="absolute top-8 left-8 text-zinc-500 hover:text-white flex items-center gap-2 font-mono uppercase text-sm z-20">
+          <button
+            onClick={() => navigate('/play')}
+            className="absolute top-8 left-8 text-zinc-500 hover:text-white flex items-center gap-2 font-mono uppercase text-sm z-20"
+          >
             <ArrowLeft size={16} /> Return
           </button>
 
@@ -452,8 +580,12 @@ export default function BotDraft() {
               className="text-center mb-16"
             >
               <Cpu className="text-blue-500 mx-auto mb-6" size={64} />
-              <h1 className="text-4xl md:text-6xl font-black font-display uppercase text-white mb-4 tracking-tighter">Simulated Combat</h1>
-              <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.4em]">Protocol: Neutralize Simulated Sorcerer</p>
+              <h1 className="text-4xl md:text-6xl font-black font-display uppercase text-white mb-4 tracking-tighter">
+                Simulated Combat
+              </h1>
+              <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.4em]">
+                Protocol: Neutralize Simulated Sorcerer
+              </p>
             </motion.div>
 
             {!difficulty ? (
@@ -469,7 +601,9 @@ export default function BotDraft() {
                   <div className="mb-6 transform group-hover:scale-110 transition-transform duration-500">
                     <Clock className="text-zinc-400" size={32} />
                   </div>
-                  <h2 className="text-3xl font-black uppercase tracking-widest mb-4 font-display text-zinc-400">Load Draft</h2>
+                  <h2 className="text-3xl font-black uppercase tracking-widest mb-4 font-display text-zinc-400">
+                    Load Draft
+                  </h2>
                   <p className="text-zinc-600 font-mono text-[10px] text-center uppercase tracking-widest leading-relaxed">
                     Load a saved draft
                   </p>
@@ -482,7 +616,7 @@ export default function BotDraft() {
                     icon: <Shield className="text-green-500" size={32} />,
                     color: 'border-green-500/20 hover:border-green-500 text-green-500',
                     bg: 'hover:bg-green-500/5',
-                    glow: 'rgba(34,197,94,0.2)'
+                    glow: 'rgba(34,197,94,0.2)',
                   },
                   {
                     id: 'medium',
@@ -491,7 +625,7 @@ export default function BotDraft() {
                     icon: <AlertTriangle className="text-yellow-500" size={32} />,
                     color: 'border-yellow-500/20 hover:border-yellow-500 text-yellow-500',
                     bg: 'hover:bg-yellow-500/5',
-                    glow: 'rgba(234,179,8,0.2)'
+                    glow: 'rgba(234,179,8,0.2)',
                   },
                   {
                     id: 'hard',
@@ -500,8 +634,8 @@ export default function BotDraft() {
                     icon: <Skull className="text-red-500" size={32} />,
                     color: 'border-red-500/20 hover:border-red-500 text-red-500',
                     bg: 'hover:bg-red-500/5',
-                    glow: 'rgba(239,68,68,0.2)'
-                  }
+                    glow: 'rgba(239,68,68,0.2)',
+                  },
                 ].map((diff, i) => (
                   <motion.button
                     key={diff.id}
@@ -513,8 +647,12 @@ export default function BotDraft() {
                     style={{ boxShadow: `0 0 0 transparent` }}
                     whileHover={{ y: -10, boxShadow: `0 20px 40px ${diff.glow}` }}
                   >
-                    <div className="mb-6 transform group-hover:scale-110 transition-transform duration-500">{diff.icon}</div>
-                    <h2 className="text-3xl font-black uppercase tracking-widest mb-4 font-display">{diff.title}</h2>
+                    <div className="mb-6 transform group-hover:scale-110 transition-transform duration-500">
+                      {diff.icon}
+                    </div>
+                    <h2 className="text-3xl font-black uppercase tracking-widest mb-4 font-display">
+                      {diff.title}
+                    </h2>
                     <p className="text-zinc-500 font-mono text-[10px] text-center uppercase tracking-widest leading-relaxed">
                       {diff.desc}
                     </p>
@@ -538,41 +676,65 @@ export default function BotDraft() {
                 </button>
 
                 <div className="flex items-center gap-4 mb-8">
-                  <div className={`w-3 h-3 rounded-full animate-pulse ${difficulty === 'easy' ? 'bg-green-500' :
-                    difficulty === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
-                    }`}></div>
-                  <span className="text-zinc-400 font-mono text-xs uppercase tracking-[0.3em]">Difficulty: {difficulty}</span>
+                  <div
+                    className={`w-3 h-3 rounded-full animate-pulse ${
+                      difficulty === 'easy'
+                        ? 'bg-green-500'
+                        : difficulty === 'medium'
+                          ? 'bg-yellow-500'
+                          : 'bg-red-500'
+                    }`}
+                  ></div>
+                  <span className="text-zinc-400 font-mono text-xs uppercase tracking-[0.3em]">
+                    Difficulty: {difficulty}
+                  </span>
                 </div>
 
-                <h2 className="text-3xl font-black text-white uppercase tracking-widest mb-12 relative z-50">Select Engagement Mode</h2>
+                <h2 className="text-3xl font-black text-white uppercase tracking-widest mb-12 relative z-50">
+                  Select Engagement Mode
+                </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full relative z-50">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => { 
-                      setDraftMode('normal'); 
+                    onClick={() => {
+                      setDraftMode('normal');
                       setActiveOverlay('startToBan');
                     }}
                     className="flex flex-col items-center p-8 bg-black/60 border border-zinc-800 rounded-2xl hover:border-blue-500 transition-all group cursor-pointer pointer-events-auto"
                   >
-                    <Target className="text-zinc-500 group-hover:text-blue-500 mb-4 transition-colors" size={32} />
-                    <span className="text-xl font-bold text-white uppercase tracking-widest mb-2">Standard</span>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">Competitive Drafting</span>
+                    <Target
+                      className="text-zinc-500 group-hover:text-blue-500 mb-4 transition-colors"
+                      size={32}
+                    />
+                    <span className="text-xl font-bold text-white uppercase tracking-widest mb-2">
+                      Standard
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                      Competitive Drafting
+                    </span>
                   </motion.button>
 
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => { 
-                      setDraftMode('gamble'); 
+                    onClick={() => {
+                      setDraftMode('gamble');
                       setDraftPhase('gambleConfig');
                     }}
                     className="flex flex-col items-center p-8 bg-black/60 border border-zinc-800 rounded-2xl hover:border-yellow-500 transition-all group cursor-pointer pointer-events-auto"
                   >
-                    <Dices className="text-zinc-500 group-hover:text-yellow-500 mb-4 transition-colors" size={32} />
-                    <span className="text-xl font-bold text-white uppercase tracking-widest mb-2">Cursed Lottery</span>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase">High Stakes Gambling</span>
+                    <Dices
+                      className="text-zinc-500 group-hover:text-yellow-500 mb-4 transition-colors"
+                      size={32}
+                    />
+                    <span className="text-xl font-bold text-white uppercase tracking-widest mb-2">
+                      Cursed Lottery
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                      High Stakes Gambling
+                    </span>
                   </motion.button>
                 </div>
               </motion.div>
@@ -584,8 +746,16 @@ export default function BotDraft() {
           {draftPhase === 'drafting' && (
             <div className="w-full bg-[#111] border-b border-zinc-800 p-4 sticky top-0 z-50 flex justify-between items-center px-8">
               <div className="flex items-center gap-4">
-                <span className={`text-xs font-mono font-bold px-3 py-1 rounded ${activePlayer === 0 ? 'bg-blue-500/20 text-blue-500 border border-blue-500/50 animate-pulse' : 'text-zinc-500'}`}>HUMAN TURN</span>
-                <span className={`text-xs font-mono font-bold px-3 py-1 rounded ${activePlayer === 1 ? 'bg-red-500/20 text-red-500 border border-red-500/50 animate-pulse' : 'text-zinc-500'}`}>BOT TURN</span>
+                <span
+                  className={`text-xs font-mono font-bold px-3 py-1 rounded ${activePlayer === 0 ? 'bg-blue-500/20 text-blue-500 border border-blue-500/50 animate-pulse' : 'text-zinc-500'}`}
+                >
+                  HUMAN TURN
+                </span>
+                <span
+                  className={`text-xs font-mono font-bold px-3 py-1 rounded ${activePlayer === 1 ? 'bg-red-500/20 text-red-500 border border-red-500/50 animate-pulse' : 'text-zinc-500'}`}
+                >
+                  BOT TURN
+                </span>
               </div>
 
               <div className="flex items-center gap-4">
@@ -597,8 +767,19 @@ export default function BotDraft() {
                   Save
                 </button>
                 <div className="flex items-center gap-3">
-                  <Clock className={timeLeft <= 5 && activePlayer === 0 ? 'text-red-500 animate-bounce' : 'text-zinc-400'} size={20} />
-                  <span className={`text-2xl font-mono font-black ${timeLeft <= 5 && activePlayer === 0 ? 'text-red-500' : 'text-white'}`}>00:{timeLeft.toString().padStart(2, '0')}</span>
+                  <Clock
+                    className={
+                      timeLeft <= 5 && activePlayer === 0
+                        ? 'text-red-500 animate-bounce'
+                        : 'text-zinc-400'
+                    }
+                    size={20}
+                  />
+                  <span
+                    className={`text-2xl font-mono font-black ${timeLeft <= 5 && activePlayer === 0 ? 'text-red-500' : 'text-white'}`}
+                  >
+                    00:{timeLeft.toString().padStart(2, '0')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -612,7 +793,7 @@ export default function BotDraft() {
                   initial={{ opacity: 0, scale: 0.9, y: 40 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 1.1 }}
-                  transition={{ type: "spring", damping: 20, stiffness: 100 }}
+                  transition={{ type: 'spring', damping: 20, stiffness: 100 }}
                   className="flex flex-col items-center gap-5 w-full max-w-xl bg-black/90 backdrop-blur-xl border border-yellow-500/20 p-6 rounded-2xl shadow-[0_0_50px_rgba(234,179,8,0.15)] relative overflow-y-auto max-h-[85vh] custom-scrollbar"
                 >
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-yellow-500 to-transparent opacity-50"></div>
@@ -623,63 +804,126 @@ export default function BotDraft() {
                       <Dices size={32} className="text-yellow-500" />
                       Cursed Lottery
                     </h2>
-                    <p className="text-yellow-500/50 font-mono tracking-[0.2em] uppercase text-xs mt-1">Configure Rules</p>
+                    <p className="text-yellow-500/50 font-mono tracking-[0.2em] uppercase text-xs mt-1">
+                      Configure Rules
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-4 w-full text-zinc-300 z-10 mt-2">
                     <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-yellow-500/30 transition-colors">
                       <div className="flex justify-between items-end mb-3">
                         <div className="flex gap-3 items-center">
-                          <Dices className="text-zinc-500 group-hover:text-yellow-500 transition-colors" size={20} />
+                          <Dices
+                            className="text-zinc-500 group-hover:text-yellow-500 transition-colors"
+                            size={20}
+                          />
                           <div>
-                            <label className="text-base font-black uppercase tracking-wider text-white">Global Roll Pool</label>
-                            <p className="text-[10px] text-zinc-500 font-mono">Total spins shared across 10 categories.</p>
+                            <label className="text-base font-black uppercase tracking-wider text-white">
+                              Global Roll Pool
+                            </label>
+                            <p className="text-[10px] text-zinc-500 font-mono">
+                              Total spins shared across 10 categories.
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="text-2xl font-black text-yellow-500 font-display">{gambleConfig.totalRolls}</span>
+                          <span className="text-2xl font-black text-yellow-500 font-display">
+                            {gambleConfig.totalRolls}
+                          </span>
                           {gambleConfig.totalRolls < gambleConfig.rollsPerStat * 10 && (
-                            <div className="text-[10px] text-red-500 font-bold animate-pulse">Below Optimal: {gambleConfig.rollsPerStat * 10} min</div>
+                            <div className="text-[10px] text-red-500 font-bold animate-pulse">
+                              Below Optimal: {gambleConfig.rollsPerStat * 10} min
+                            </div>
                           )}
                         </div>
                       </div>
-                      <input type="range" min="10" max="300" step="5" value={gambleConfig.totalRolls} onChange={e => {
-                        const val = +e.target.value;
-                        setGambleConfig({ ...gambleConfig, totalRolls: val, rollsPerStat: Math.min(gambleConfig.rollsPerStat, Math.floor(val / 10)) });
-                      }} className="w-full accent-yellow-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                      <input
+                        type="range"
+                        min="10"
+                        max="300"
+                        step="5"
+                        value={gambleConfig.totalRolls}
+                        onChange={(e) => {
+                          const val = +e.target.value;
+                          setGambleConfig({
+                            ...gambleConfig,
+                            totalRolls: val,
+                            rollsPerStat: Math.min(gambleConfig.rollsPerStat, Math.floor(val / 10)),
+                          });
+                        }}
+                        className="w-full accent-yellow-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                      />
                     </div>
 
                     <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-yellow-400/30 transition-colors">
                       <div className="flex justify-between items-end mb-3">
                         <div className="flex gap-3 items-center">
-                          <Sparkles className="text-zinc-500 group-hover:text-yellow-400 transition-colors" size={20} />
+                          <Sparkles
+                            className="text-zinc-500 group-hover:text-yellow-400 transition-colors"
+                            size={20}
+                          />
                           <div>
-                            <label className="text-base font-black uppercase tracking-wider text-white">Jackpot (Lucky) Rolls</label>
-                            <p className="text-[10px] text-zinc-500 font-mono">Elite/Mythic focus (Uses Global Pool + Stat Capacity).</p>
+                            <label className="text-base font-black uppercase tracking-wider text-white">
+                              Jackpot (Lucky) Rolls
+                            </label>
+                            <p className="text-[10px] text-zinc-500 font-mono">
+                              Elite/Mythic focus (Uses Global Pool + Stat Capacity).
+                            </p>
                           </div>
                         </div>
-                        <span className="text-2xl font-black text-yellow-400 font-display">{gambleConfig.luckyRolls}</span>
+                        <span className="text-2xl font-black text-yellow-400 font-display">
+                          {gambleConfig.luckyRolls}
+                        </span>
                       </div>
-                      <input type="range" min="0" max={Math.min(50, gambleConfig.totalRolls)} step="1" value={gambleConfig.luckyRolls} onChange={e => {
-                        setGambleConfig({ ...gambleConfig, luckyRolls: +e.target.value });
-                      }} className="w-full accent-yellow-400 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                      <input
+                        type="range"
+                        min="0"
+                        max={Math.min(50, gambleConfig.totalRolls)}
+                        step="1"
+                        value={gambleConfig.luckyRolls}
+                        onChange={(e) => {
+                          setGambleConfig({ ...gambleConfig, luckyRolls: +e.target.value });
+                        }}
+                        className="w-full accent-yellow-400 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                      />
                     </div>
 
                     <div className="bg-[#111] p-4 rounded-xl border border-white/5 relative group hover:border-red-500/30 transition-colors">
                       <div className="flex justify-between items-end mb-3">
                         <div className="flex gap-3 items-center">
-                          <Target className="text-zinc-500 group-hover:text-red-500 transition-colors" size={20} />
+                          <Target
+                            className="text-zinc-500 group-hover:text-red-500 transition-colors"
+                            size={20}
+                          />
                           <div>
-                            <label className="text-base font-black uppercase tracking-wider text-white">Category Limit</label>
-                            <p className="text-[10px] text-zinc-500 font-mono">Max spins allowed per individual category.</p>
+                            <label className="text-base font-black uppercase tracking-wider text-white">
+                              Category Limit
+                            </label>
+                            <p className="text-[10px] text-zinc-500 font-mono">
+                              Max spins allowed per individual category.
+                            </p>
                           </div>
                         </div>
-                        <span className="text-2xl font-black text-red-500 font-display">{gambleConfig.rollsPerStat}</span>
+                        <span className="text-2xl font-black text-red-500 font-display">
+                          {gambleConfig.rollsPerStat}
+                        </span>
                       </div>
-                      <input type="range" min="1" max="30" step="1" value={gambleConfig.rollsPerStat} onChange={e => {
-                        const val = +e.target.value;
-                        setGambleConfig({ ...gambleConfig, rollsPerStat: val, totalRolls: Math.max(gambleConfig.totalRolls, val * 10) });
-                      }} className="w-full accent-red-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none" />
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        step="1"
+                        value={gambleConfig.rollsPerStat}
+                        onChange={(e) => {
+                          const val = +e.target.value;
+                          setGambleConfig({
+                            ...gambleConfig,
+                            rollsPerStat: val,
+                            totalRolls: Math.max(gambleConfig.totalRolls, val * 10),
+                          });
+                        }}
+                        className="w-full accent-red-500 cursor-pointer h-2 bg-zinc-800 rounded-lg appearance-none"
+                      />
                     </div>
                   </div>
 
@@ -690,7 +934,7 @@ export default function BotDraft() {
                         initialGambleStates[i] = {
                           remainingTotal: gambleConfig.totalRolls,
                           remainingLucky: gambleConfig.luckyRolls,
-                          statRolls: {}
+                          statRolls: {},
                         };
                       });
                       setGambleStates(initialGambleStates);
@@ -705,52 +949,34 @@ export default function BotDraft() {
             )}
 
             {draftPhase === 'banning' && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center w-full">
-                <h2 className="text-4xl font-black text-red-500 uppercase tracking-widest mb-12 flex items-center gap-3">
-                  <Ban size={36} /> Ban Phase
-                </h2>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 w-full max-w-md">
-                  <h3 className="text-xl font-bold uppercase mb-4 text-white">Your Bans</h3>
-                  {[0, 1].map(bIndex => {
-                    const currentBans = bans.flat().filter(Boolean);
-                    const options = characters
-                      .filter(c => !currentBans.includes(c.id) || bans[0][bIndex] === c.id)
-                      .map(c => ({ value: c.id, label: c.name, grade: c.grade }));
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center w-full"
+              >
+                <BanPhase
+                  players={players}
+                  bans={bans}
+                  banCount={2}
+                  onBanChange={(pIndex, banIndex, val) => {
+                    const newBans = bans.map((b) => [...b]);
+                    while (newBans.length <= pIndex) newBans.push([]);
+                    newBans[pIndex][banIndex] = val;
 
-                    return (
-                      <div key={bIndex} className="mb-4">
-                        <SearchableSelect
-                          value={bans[0][bIndex] || ""}
-                          options={options}
-                          onChange={(val: string) => {
-                            const newBans = [...bans];
-                            newBans[0][bIndex] = val;
-
-                            if (!newBans[1][bIndex] || newBans[1][bIndex] === val) {
-                              const currentBansAll = newBans.flat().filter(Boolean);
-                              const available = characters.filter(c => !currentBansAll.includes(c.id));
-                              if (available.length > 0) {
-                                const randomBan = available[Math.floor(Math.random() * available.length)].id;
-                                newBans[1][bIndex] = randomBan;
-                              }
-                            }
-                            setBans(newBans);
-                          }}
-                          placeholder="Select Entity..."
-                          kanji="禁"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-                {bans[0].length === 2 && bans[0][1] && (
-                  <button 
-                    onClick={() => setActiveOverlay('banToDraft')} 
-                    className="mt-8 bg-red-600 px-8 py-3 rounded-full font-bold uppercase text-white hover:bg-red-700"
-                  >
-                    Begin Draft
-                  </button>
-                )}
+                    // Bot auto-seals into the matching slot once the player picks
+                    if (!newBans[1][banIndex] || newBans[1][banIndex] === val) {
+                      const taken = newBans.flat().filter(Boolean);
+                      const available = characters.filter((c) => !taken.includes(c.id));
+                      if (available.length > 0) {
+                        newBans[1][banIndex] =
+                          available[Math.floor(Math.random() * available.length)].id;
+                      }
+                    }
+                    setBans(newBans);
+                  }}
+                  isReadOnly={(i) => i === 1}
+                  onBegin={() => setActiveOverlay('banToDraft')}
+                />
               </motion.div>
             )}
 
@@ -758,12 +984,17 @@ export default function BotDraft() {
               <div className="flex flex-col items-center gap-8 w-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full justify-items-center items-start relative z-20">
                   {players.map((draft, index) => (
-                    <div key={index} className={`relative ${activePlayer !== index ? 'opacity-60 pointer-events-none' : 'ring-4 ring-blue-500/50 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.2)]'}`}>
-                      {index === 1 && activePlayer === 1 && (
+                    <div
+                      key={index}
+                      className={`relative ${activePlayer !== index ? 'opacity-60 pointer-events-none' : 'ring-4 ring-blue-500/50 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.2)]'}`}
+                    >
+                      {index === 1 && activePlayer === 1 && !allSelected && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-2xl">
                           <div className="bg-zinc-900 border border-red-500 p-4 rounded-xl flex items-center gap-3 animate-pulse">
                             <Cpu className="text-red-500" />
-                            <span className="font-mono text-white font-bold">AI IS THINKING...</span>
+                            <span className="font-mono text-white font-bold">
+                              AI IS THINKING...
+                            </span>
                           </div>
                         </div>
                       )}
@@ -771,14 +1002,15 @@ export default function BotDraft() {
                         playerNum={index + 1}
                         draft={draft}
                         onSelect={(stat, entityId) => handleSelect(index, stat, entityId)}
-                        onNameChange={() => { }}
-                        onRemove={() => { }}
+                        onNameChange={() => {}}
+                        onRemove={() => {}}
                         canRemove={false}
                         getAvailableEntities={getAvailableEntities}
                         allEntities={characters}
                         draftMode={draftMode}
                         lockOnSelect={true}
                         gambleState={gambleStates[index]}
+                        gambleConfig={gambleConfig}
                         onGambleRoll={(stat, isLucky) => handleGambleRoll(index, stat, isLucky)}
                         isTurn={index === activePlayer}
                         activeRollingStat={index === activePlayer ? activeRollingStat : null}
@@ -794,18 +1026,7 @@ export default function BotDraft() {
                     isActive={timerEnabled && draftPhase === 'drafting'}
                     duration={timerDuration}
                     onTimeUp={() => {
-                      if (activePlayer === 0) {
-                        const emptyStat = statsList.find(s => players[0][s] === null);
-                        if (emptyStat) {
-                          const category = statCategoryMap[emptyStat] || 'character';
-                          const available = characters.filter(
-                            e => e.category === category && !Object.values(players[0]).includes(e.id)
-                          );
-                          if (available.length > 0) {
-                            handleSelect(0, emptyStat, available[0].id);
-                          }
-                        }
-                      }
+                      if (activePlayer === 0) executeAutoTurnRef.current(0);
                     }}
                   />
                   <button
@@ -821,24 +1042,39 @@ export default function BotDraft() {
                 </div>
 
                 <SystemProtocol
-                  onClash={() => setDraftPhase('transitioning')}
+                  onClash={() => setActiveOverlay('clash')}
                   showClashButton={allSelected}
                 />
 
                 {!allSelected && activePlayer === 0 && (
                   <div className="mt-8 flex flex-col items-center gap-4">
                     <div className="text-zinc-500 font-mono text-xs animate-pulse tracking-widest uppercase">
-                      Your Turn - {draftMode === 'gamble' ? 'Roll for a category' : 'Select a category to draft'}
+                      Your Turn -{' '}
+                      {draftMode === 'gamble'
+                        ? 'Roll for a category'
+                        : 'Select a category to draft'}
                     </div>
+                    {draftMode === 'gamble' && !activeRollingStat && (
+                      <button
+                        onClick={handleFinishGambleTurn}
+                        className="px-6 py-2 bg-zinc-900 border border-zinc-700 hover:border-red-500/60 text-zinc-400 hover:text-red-400 rounded-full font-mono text-xs uppercase tracking-widest transition-colors"
+                      >
+                        End Turn
+                      </button>
+                    )}
                     {draftMode === 'gamble' && (
                       <div className="flex items-center gap-6 bg-zinc-900/50 border border-zinc-800 px-6 py-3 rounded-full">
                         <div className="flex items-center gap-2">
                           <Dices size={16} className="text-zinc-400" />
-                          <span className="text-[10px] font-mono text-zinc-500 uppercase">Rolls: {gambleStates[0].remainingTotal}</span>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                            Rolls: {gambleStates[0].remainingTotal}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Sparkles size={16} className="text-yellow-500" />
-                          <span className="text-[10px] font-mono text-yellow-500 uppercase tracking-tighter">Lucky: {gambleStates[0].remainingLucky}</span>
+                          <span className="text-[10px] font-mono text-yellow-500 uppercase tracking-tighter">
+                            Lucky: {gambleStates[0].remainingLucky}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -859,8 +1095,16 @@ export default function BotDraft() {
                     setRoundWins([0, 0]);
                     setMatchHistory([]);
                     setGambleStates({
-                      0: { remainingTotal: gambleConfig.totalRolls, remainingLucky: gambleConfig.luckyRolls, statRolls: {} },
-                      1: { remainingTotal: gambleConfig.totalRolls, remainingLucky: gambleConfig.luckyRolls, statRolls: {} }
+                      0: {
+                        remainingTotal: gambleConfig.totalRolls,
+                        remainingLucky: gambleConfig.luckyRolls,
+                        statRolls: {},
+                      },
+                      1: {
+                        remainingTotal: gambleConfig.totalRolls,
+                        remainingLucky: gambleConfig.luckyRolls,
+                        statRolls: {},
+                      },
                     });
                     setDraftPhase('setup');
                     setActivePlayer(0);
@@ -868,13 +1112,21 @@ export default function BotDraft() {
                   }}
                   onReset={(winners, finalScores) => {
                     const newWins = [...roundWins];
-                    winners.forEach(w => newWins[w]++);
+                    winners.forEach((w) => newWins[w]++);
                     setRoundWins(newWins);
                     setPlayers([emptyDraft(), emptyDraft()]);
                     setBans([[], []]);
                     setGambleStates({
-                      0: { remainingTotal: gambleConfig.totalRolls, remainingLucky: gambleConfig.luckyRolls, statRolls: {} },
-                      1: { remainingTotal: gambleConfig.totalRolls, remainingLucky: gambleConfig.luckyRolls, statRolls: {} }
+                      0: {
+                        remainingTotal: gambleConfig.totalRolls,
+                        remainingLucky: gambleConfig.luckyRolls,
+                        statRolls: {},
+                      },
+                      1: {
+                        remainingTotal: gambleConfig.totalRolls,
+                        remainingLucky: gambleConfig.luckyRolls,
+                        statRolls: {},
+                      },
                     });
                     setDraftPhase('setup');
                     setActivePlayer(0);
@@ -922,11 +1174,11 @@ export default function BotDraft() {
             onComplete={() => setActiveOverlay(null)}
           />
         )}
-        {draftPhase === 'transitioning' && (
+        {activeOverlay === 'clash' && (
           <CursedConvergenceTransition
             players={players}
             onPhaseSwap={() => setDraftPhase('comparing')}
-            onComplete={() => { }}
+            onComplete={() => setActiveOverlay(null)}
           />
         )}
       </AnimatePresence>
@@ -949,10 +1201,14 @@ export default function BotDraft() {
               className="relative w-full max-w-md bg-[#0a0a0a] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             >
               <div className="p-6 border-b border-zinc-800 bg-[#050505]">
-                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">Save Draft</h2>
+                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">
+                  Save Draft
+                </h2>
               </div>
               <div className="p-6 space-y-4">
-                <p className="text-zinc-400 font-mono text-sm">Save your current draft to localStorage?</p>
+                <p className="text-zinc-400 font-mono text-sm">
+                  Save your current draft to localStorage?
+                </p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setIsSaveConfirmOpen(false)}
@@ -991,7 +1247,9 @@ export default function BotDraft() {
               className="relative w-full max-w-lg bg-[#0a0a0a] border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
             >
               <div className="p-6 border-b border-zinc-800 flex items-center justify-between bg-[#050505]">
-                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">Saved Drafts</h2>
+                <h2 className="text-xl font-black font-display text-white uppercase tracking-tighter">
+                  Saved Drafts
+                </h2>
                 <button
                   onClick={() => setIsSavedDraftsOpen(false)}
                   className="text-zinc-500 hover:text-white transition-colors"
@@ -1010,7 +1268,9 @@ export default function BotDraft() {
                     >
                       <div className="flex-1">
                         <p className="text-white font-mono text-sm font-bold">{saved.name}</p>
-                        <p className="text-zinc-500 font-mono text-xs">{new Date(saved.timestamp).toLocaleDateString()}</p>
+                        <p className="text-zinc-500 font-mono text-xs">
+                          {new Date(saved.timestamp).toLocaleDateString()}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -1032,7 +1292,9 @@ export default function BotDraft() {
               </div>
               {deleteConfirmId && (
                 <div className="p-6 border-t border-zinc-800 bg-black/50">
-                  <p className="text-zinc-300 text-sm mb-4 font-mono uppercase tracking-widest text-center">Delete this saved draft?</p>
+                  <p className="text-zinc-300 text-sm mb-4 font-mono uppercase tracking-widest text-center">
+                    Delete this saved draft?
+                  </p>
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
@@ -1073,7 +1335,11 @@ export default function BotDraft() {
       <HowToPlayTutorial isOpen={isHowToPlayOpen} onClose={() => setIsHowToPlayOpen(false)} />
 
       {/* Feedback System */}
-      <FeedbackSystem hidden={true} isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      <FeedbackSystem
+        hidden={true}
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+      />
 
       {/* Achievements Modal */}
       <AchievementsModal isOpen={isAchievementsOpen} onClose={() => setIsAchievementsOpen(false)} />

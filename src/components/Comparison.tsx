@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Swords, Zap, Share2, Check, Sparkles } from 'lucide-react';
 import { ClashRow } from './ClashRow';
 import { ClashReport, ClashRound } from './ClashReport';
+import { HaloRays, CursedEmbers, ShockRing } from './TransitionFX';
 import { initializePlayer, recordMatchResult } from '../utils/leaderboard';
 import {
   achievements,
@@ -907,6 +908,23 @@ Try it yourself: https://jjk-stat-clash.vercel.app
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(234,179,8,0.15)_0%,transparent_70%)] pointer-events-none"></div>
           <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:10px_10px] pointer-events-none animate-[pulse_3s_linear_infinite]"></div>
 
+          {/* Rotating halo rays + victory seal watermark + embers */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <HaloRays color="rgba(234,179,8,0.10)" />
+            <motion.span
+              aria-hidden
+              initial={{ opacity: 0, scale: 1.4, rotate: -10 }}
+              animate={{ opacity: 0.07, scale: 1, rotate: 0 }}
+              transition={{ delay: 0.7, duration: 0.8, ease: 'easeOut' }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-black font-display text-yellow-500 select-none leading-none"
+              style={{ fontSize: 'min(60vh, 420px)' }}
+            >
+              勝
+            </motion.span>
+            <CursedEmbers count={14} color="rgba(234,179,8,0.7)" maxDelay={1.6} />
+          </div>
+          <ShockRing delay={0.55} color="rgba(234,179,8,0.55)" maxScale={4} />
+
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ repeat: Infinity, duration: 10, ease: 'linear' }}
@@ -937,7 +955,22 @@ Try it yourself: https://jjk-stat-clash.vercel.app
 
           <div className="text-center relative z-10">
             <h2 className="text-6xl md:text-7xl font-black font-display text-white mb-4 tracking-wider uppercase drop-shadow-md">
-              {getWinners().length > 1 ? 'DRAW!' : 'WINNER!'}
+              {(getWinners().length > 1 ? 'DRAW!' : 'WINNER!').split('').map((ch, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0, y: 40, rotateX: -90 }}
+                  animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                  transition={{
+                    delay: 0.7 + i * 0.05,
+                    type: 'spring',
+                    stiffness: 220,
+                    damping: 14,
+                  }}
+                  className="inline-block drop-shadow-[0_0_18px_rgba(234,179,8,0.35)]"
+                >
+                  {ch}
+                </motion.span>
+              ))}
             </h2>
             <motion.p
               initial={{ opacity: 0, y: 10 }}
