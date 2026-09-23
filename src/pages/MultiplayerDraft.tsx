@@ -268,7 +268,7 @@ export default function MultiplayerDraft() {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-yellow-500 font-mono space-y-6">
         <>
-          <title>Synchronizing | {roomId} | JJK Stat Clash</title>
+          <title>{`Synchronizing | ${roomId} | JJK Stat Clash`}</title>
         </>
         <motion.div
           animate={{ rotate: 360 }}
@@ -290,7 +290,7 @@ export default function MultiplayerDraft() {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center font-sans relative">
         <>
-          <title>Lobby | {roomId}</title>
+          <title>{`Lobby | ${roomId}`}</title>
         </>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(234,179,8,0.1)_0%,transparent_50%)] pointer-events-none z-0"></div>
 
@@ -496,7 +496,7 @@ export default function MultiplayerDraft() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden">
       <>
-        <title>Clash | {roomId}</title>
+        <title>{`Clash | ${roomId}`}</title>
       </>
 
       {gameState.draftPhase === 'drafting' && (

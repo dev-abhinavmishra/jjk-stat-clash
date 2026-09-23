@@ -16,6 +16,7 @@ description: How to run and end-to-end test JJK Stat Clash locally (Vite dev ser
 
 - **Always pass `workdir` on `exec` calls** — the default session cwd (`/home/ubuntu`) does not exist on this Windows machine; every shell command without an explicit workdir fails immediately.
 - **Only Microsoft Edge is installed** (no Chrome) — the `browser_console` and `read_dom` computer-tool actions do NOT work. For tab-title assertions use screenshots + `zoom` on the tab bar region; Edge's first-run wizard may also need a one-time click-through.
+- For deterministic title/head checks, open Edge DevTools (F12, allow the permission prompt once) and eval `document.title` in the Console — the tab label can lag behind or race short-lived branches, while `document.title` and `document.querySelectorAll('title')` are ground truth. You can navigate via `location.href=...` in the console when it holds keyboard focus.
 - **PartyKit cannot run locally** — `partykit dev` crashes on Miniflare (`MiniflareCoreError: ERR_RUNTIME_FAILURE`), so real multiplayer gameplay (`/play/multiplayer` room joins, synced drafts) is untestable on this box. The draft-room route `/play/multiplayer/draft/:roomId` still renders its loading/error branches without a server (a ~5s no-socket timer flips it to the Connection Error screen) — enough for page-title checks, not gameplay.
 
 ## Local draft flow (manual — no auto-fill button exists)
