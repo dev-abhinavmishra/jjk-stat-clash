@@ -268,9 +268,22 @@ export default function BotDraft() {
           handleFinishGambleTurn();
           return;
         }
+        // Free action: bind a pact first if empowered — it never ends the turn.
+        if (!players[1].bindingVow && isVowEmpowered(players[1])) {
+          const vowPool = getGamblePool(1, 'bindingVow');
+          if (vowPool.length > 0) {
+            const vow = vowPool[Math.floor(Math.random() * vowPool.length)];
+            const vowPlayers = [...players];
+            vowPlayers[1] = { ...vowPlayers[1], bindingVow: vow.id };
+            vowPlayers[1] = validateDraft(vowPlayers[1]);
+            setPlayers(vowPlayers);
+            return; // players-change re-fires the turn effect — bot keeps rolling
+          }
+        }
         const rollableStats = emptyStats.filter(
           (s) =>
-            (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+            s !== 'bindingVow' &&
+            currentState.remainingTotal > 0 &&
             (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
             getGamblePool(1, s).length > 0
         );
@@ -308,10 +321,7 @@ export default function BotDraft() {
           const newGambleStates = { ...gambleStates };
           newGambleStates[1] = {
             ...currentState,
-            remainingTotal:
-              statToRoll === 'bindingVow'
-                ? currentState.remainingTotal
-                : currentState.remainingTotal - numRolls,
+            remainingTotal: currentState.remainingTotal - numRolls,
             statRolls: {
               ...currentState.statRolls,
               [statToRoll]: (currentState.statRolls[statToRoll] || 0) + 1,
@@ -499,7 +509,10 @@ export default function BotDraft() {
       }
     });
     // The pact slot only accepts vow ids — scrub anything else.
-    if (newDraft.bindingVow && !bindingVows.some((v) => v.id === newDraft.bindingVow)) {
+    if (
+      newDraft.bindingVow &&
+      (!bindingVows.some((v) => v.id === newDraft.bindingVow) || !isVowEmpowered(newDraft))
+    ) {
       newDraft.bindingVow = null;
     }
     return newDraft as DraftSelection;

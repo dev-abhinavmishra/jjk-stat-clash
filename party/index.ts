@@ -1,4 +1,7 @@
 import type { Party, PartyServer, Connection, Request } from 'partykit/server';
+import { characters, statsList, statCategoryMap, bindingVows } from '../src/data/characters';
+
+const VALID_STATS = new Set<string>(statsList);
 
 export default class DraftServer implements PartyServer {
   constructor(readonly party: Party) {}
@@ -24,6 +27,26 @@ export default class DraftServer implements PartyServer {
 
   timerInterval: ReturnType<typeof setInterval> | null = null;
   autoTransitionTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Server-side legality for draft picks and gamble results — clients send
+  // arbitrary stat/entityId pairs, so anything that isn't a real in-category,
+  // unbanned entity (or an empowered vow id for the pact slot) is dropped.
+  isLegalSelection(pIndex: number, stat: string, entityId: string): boolean {
+    const draft = this.state.players[pIndex]?.draft;
+    if (!draft || typeof stat !== 'string' || !VALID_STATS.has(stat)) return false;
+    if (typeof entityId !== 'string') return false;
+    if (stat === 'bindingVow') {
+      const empowered =
+        draft.specialPower1 === 'binding-vow' || draft.specialPower2 === 'binding-vow';
+      return empowered && bindingVows.some((v) => v.id === entityId);
+    }
+    const entity = characters.find((c) => c.id === entityId);
+    if (!entity) return false;
+    const banned: string[] = this.state.bans.flat().filter(Boolean);
+    if (banned.includes(entityId)) return false;
+    const category = (statCategoryMap as Record<string, string>)[stat] || 'character';
+    return entity.category === category;
+  }
 
   onRequest(req: any): any {
     return new Response('JJK Stat Clash Party Server is online.', { status: 200 });
@@ -100,11 +123,19 @@ export default class DraftServer implements PartyServer {
     }
 
     if (data.type === 'updateGambleConfig' && isHost) {
-      this.state.gambleConfig = data.config;
+      // Clamp host-supplied limits — unbounded values enable roll-flood abuse.
+      const clamp = (v: any, lo: number, hi: number) =>
+        Math.min(hi, Math.max(lo, Math.floor(Number(v) || lo)));
+      const config = {
+        totalRolls: clamp(data.config?.totalRolls, 1, 500),
+        luckyRolls: clamp(data.config?.luckyRolls, 0, 200),
+        rollsPerStat: clamp(data.config?.rollsPerStat, 1, 50),
+      };
+      this.state.gambleConfig = config;
       this.state.players.forEach((p: any) => {
         this.state.gambleStates[p.id] = {
-          remainingTotal: data.config.totalRolls,
-          remainingLucky: data.config.luckyRolls,
+          remainingTotal: config.totalRolls,
+          remainingLucky: config.luckyRolls,
           statRolls: {},
         };
       });
@@ -162,6 +193,7 @@ export default class DraftServer implements PartyServer {
     ) {
       if (!data.entityId) return;
       if (this.state.players[pIndex].draft[data.stat]) return;
+      if (!this.isLegalSelection(pIndex, data.stat, data.entityId)) return;
       this.state.players[pIndex].draft[data.stat] = data.entityId;
 
       // Check for extra turn from Binding Vow
@@ -198,6 +230,8 @@ export default class DraftServer implements PartyServer {
       if (this.state.currentRollingStat && this.state.currentRollingStat !== stat) {
         return;
       }
+
+      if (!this.isLegalSelection(pIndex, stat, data.entityId)) return;
 
       if (stat !== 'bindingVow' && gState.remainingTotal <= 0) return;
       if (isLucky && gState.remainingLucky <= 0) return;

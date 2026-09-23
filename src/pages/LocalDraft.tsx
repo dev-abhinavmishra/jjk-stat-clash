@@ -180,7 +180,10 @@ export default function LocalDraft() {
     });
     // The pact slot only accepts vow ids — scrub anything else (e.g. a
     // special-power id written by an older build or a stale saved draft).
-    if (newDraft.bindingVow && !bindingVows.some((v) => v.id === newDraft.bindingVow)) {
+    if (
+      newDraft.bindingVow &&
+      (!bindingVows.some((v) => v.id === newDraft.bindingVow) || !isVowEmpowered(newDraft))
+    ) {
       newDraft.bindingVow = null;
     }
     return newDraft as DraftSelection;

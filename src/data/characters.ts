@@ -2108,3 +2108,70 @@ export const pairings: Pairing[] = [
     isSecret: true,
   },
 ];
+
+export const bindingVows = [
+  {
+    id: 'revealing-hand',
+    name: "Revealing One's Hand",
+    description: '-10 Battle IQ, +15% to CT & Special Powers',
+    loreDescription:
+      "A vow that increases the efficacy of one's technique by explaining its mechanics to the opponent.",
+    grade: 'Epic',
+  },
+  {
+    id: 'life-gamble',
+    name: 'Life Gamble',
+    description: 'Durability drops to 1, Strength & Speed doubled',
+    loreDescription:
+      'A desperate pact that sacrifices all defensive cursed energy reinforcement for absolute offensive power.',
+    grade: 'Mythic',
+  },
+  {
+    id: 'simple-territory',
+    name: 'Simple Territory',
+    description: 'Forfeit Domain Expansion, +20 Durability vs DE users',
+    loreDescription:
+      'A technique from the Heian era to protect the weak, neutralizing the sure-hit effect of domains.',
+    grade: 'Rare',
+  },
+  {
+    id: 'overtime',
+    name: 'Overtime',
+    description: '-10 Cursed Energy, +20 to all Physical Stats',
+    loreDescription:
+      'A vow that restricts cursed energy output during normal hours, granting a massive surge when working past the limit.',
+    grade: 'Epic',
+  },
+  {
+    id: 'heavenly-pact',
+    name: 'Heavenly Pact',
+    description: '0 CE/CT/DE, +40 to all Physical Stats',
+    loreDescription:
+      'An artificial imitation of a Heavenly Restriction, sacrificing all jujutsu potential for raw, overwhelming physical might.',
+    grade: 'Legendary',
+  },
+  {
+    id: 'future-sacrifice',
+    name: 'Future Sacrifice',
+    description: '+50 Strength/Speed, -50 CE/CT',
+    loreDescription:
+      'Sacrificing all future potential and ability to ever swing a sword again for one ultimate, transcendent strike.',
+    grade: 'Mythic',
+  },
+  {
+    id: 'open-barrier',
+    name: 'Open Barrier',
+    description: '+20 Domain Expansion, -10 Durability',
+    loreDescription:
+      'Allowing an escape route in a Domain Expansion vastly increases its area of effect and lethal sure-hit range.',
+    grade: 'Legendary',
+  },
+  {
+    id: 'sacrificial-limb',
+    name: 'Sacrificial Limb',
+    description: '+20 Cursed Energy, -20 Body',
+    loreDescription:
+      "Permanently sacrificing a part of one's body to gain a sudden, massive surge in cursed energy output.",
+    grade: 'Epic',
+  },
+];

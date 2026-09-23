@@ -95,7 +95,11 @@ Try it yourself: https://jjk-stat-clash.vercel.app
           p.entities.every((id) => players.some((pl) => Object.values(pl).includes(id)))
         )
         .map((p) => p.id);
-      const allSlotsFilled = players.every((pl) => statsList.every((s) => pl[s] !== null));
+      // bindingVow is optional — a complete draft doesn't require it, so
+      // Perfectionist shouldn't either.
+      const allSlotsFilled = players.every((pl) =>
+        statsList.every((s) => s === 'bindingVow' || pl[s] !== null)
+      );
 
       const winners = getWinners();
       const sortedScores = [...scores].sort((a, b) => b - a);
