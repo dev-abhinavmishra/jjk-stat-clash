@@ -82,7 +82,10 @@ export const achievements: Achievement[] = [
     description: 'Win after losing the first round',
     icon: '🔄',
     check: (ctx) =>
-      ctx.hasWon && ctx.roundWins.length >= 2 && ctx.roundWins.filter((w) => w > 0).length === 1,
+      // The winner must have conceded at least one round to an opponent first
+      ctx.hasWon &&
+      ctx.roundWins.length >= 2 &&
+      ctx.roundWins.some((w, i) => i !== ctx.playerIndex && w > 0),
   },
   {
     id: 'black-flash-master',

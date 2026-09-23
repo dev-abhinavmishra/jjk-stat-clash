@@ -95,7 +95,11 @@ Try it yourself: https://jjk-stat-clash.vercel.app
           p.entities.every((id) => players.some((pl) => Object.values(pl).includes(id)))
         )
         .map((p) => p.id);
-      const allSlotsFilled = players.every((pl) => statsList.every((s) => pl[s] !== null));
+      // bindingVow is optional — a complete draft doesn't require it, so
+      // Perfectionist shouldn't either.
+      const allSlotsFilled = players.every((pl) =>
+        statsList.every((s) => s === 'bindingVow' || pl[s] !== null)
+      );
 
       const winners = getWinners();
       const sortedScores = [...scores].sort((a, b) => b - a);
@@ -105,7 +109,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
       players.forEach((p, i) => {
         addMatchRecord({
           date: new Date().toISOString(),
-          mode: 'local',
+          mode: isMultiplayer ? 'multiplayer' : 'local',
           playerCount: players.length,
           won: winners.includes(i),
           playerName: p.playerName || `Player ${i + 1}`,
@@ -207,9 +211,8 @@ Try it yourself: https://jjk-stat-clash.vercel.app
     players.forEach((player, playerIndex) => {
       const hasBlackFlashAbility = Object.values(player).includes('black-flash');
 
-      // Scale base chance by body stat if available
-      const charId = player.character;
-      const char = characters.find((c) => c.id === charId);
+      // Scale base chance by body stat of the drafted Body character
+      const char = characters.find((c) => c.id === player.body);
       const bodyStat = (char as any)?.stats?.body || 50;
 
       statsList.forEach((stat, statIndex) => {
@@ -230,8 +233,8 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         }
       });
 
-      // Pity system for Black Flash ability holders
-      if (hasBlackFlashAbility && !flashes.flat().includes(true)) {
+      // Pity system for Black Flash ability holders — scoped to this player
+      if (hasBlackFlashAbility && !flashes.some((row) => row[playerIndex])) {
         const physicalStats = statsList.filter((s) => ['strength', 'body', 'speed'].includes(s));
         const randomStat = physicalStats[Math.floor(seededRandom() * physicalStats.length)];
         const targetIndex = statsList.indexOf(randomStat);
@@ -281,10 +284,6 @@ Try it yourself: https://jjk-stat-clash.vercel.app
     }
 
     if (vow === 'heavenly-pact' && ['ce', 'ct', 'domainExpansion'].includes(statKey)) {
-      return { baseValue, bonus: -baseValue, total: 0, isBlackFlash: false, isNullified: true };
-    }
-
-    if (vow === 'future-sacrifice' && ['ce', 'ct'].includes(statKey)) {
       return { baseValue, bonus: -baseValue, total: 0, isBlackFlash: false, isNullified: true };
     }
 
@@ -366,7 +365,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         }
       }
     } else if (vow === 'overtime') {
-      const isNanami = draft.character === 'nanami';
+      const isNanami = Object.values(draft).includes('nanami');
       const totalRounds = roundWins.reduce((a, b) => a + b, 0);
       const isLateGame = totalRounds >= 3;
 
@@ -376,21 +375,23 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         } else {
           bonus -= 10;
         }
-      } else if (['strength', 'speed', 'durability'].includes(statKey)) {
+      } else if (['strength', 'speed', 'durability', 'body'].includes(statKey)) {
         // Base Overtime bonus
         bonus += 20;
         // Nanami specific late-game scaling
         if (isNanami && isLateGame) {
-          bonus += 30; // Massive spike in Output (Strength/Speed/Durability)
+          bonus += 30; // Massive spike in Output
         }
       }
     } else if (vow === 'heavenly-pact') {
-      if (['strength', 'speed', 'durability'].includes(statKey)) {
+      if (['strength', 'speed', 'durability', 'body'].includes(statKey)) {
         bonus += isHR ? 15 : 40; // If already HR, only add 15 to reach +40 total bonus
       }
     } else if (vow === 'future-sacrifice') {
       if (['strength', 'speed'].includes(statKey)) {
         bonus += 50;
+      } else if (['ce', 'ct'].includes(statKey)) {
+        bonus -= 50;
       }
     } else if (vow === 'open-barrier') {
       if (statKey === 'domainExpansion') {
@@ -436,7 +437,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         name: "Revealing One's Hand",
         entities: [],
         bonusStats: {},
-        description: '-10 IQ, +15% CT/Special',
+        description: '-10 IQ, +20% CE/CT/Special',
       });
     } else if (vow === 'life-gamble') {
       active.push({
@@ -444,7 +445,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         name: 'Life Gamble',
         entities: [],
         bonusStats: {},
-        description: '1 Durability, 2x Strength/Speed',
+        description: '1 Durability, 2x Str/Spd/Body',
       });
     } else if (vow === 'simple-territory') {
       active.push({

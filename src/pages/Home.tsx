@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -47,7 +46,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30 relative overflow-hidden flex flex-col">
-      <Helmet>
+      <>
         <title>
           JJK Stat Clash | Build Your Ultimate Sorcerer - Free Jujutsu Kaisen Draft Game
         </title>
@@ -110,7 +109,7 @@ export default function Home() {
           }
           `}
         </script>
-      </Helmet>
+      </>
 
       {/* Animated Background (compressed video) */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">

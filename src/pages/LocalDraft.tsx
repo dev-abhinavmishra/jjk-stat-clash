@@ -110,7 +110,6 @@ export default function LocalDraft() {
   const [gambleStates, setGambleStates] = useState<Record<number, GambleState>>({});
   const [currentTurnPlayer, setCurrentTurnPlayer] = useState(0);
   const [activeRollingStat, setActiveRollingStat] = useState<string | null>(null);
-  const [extraTurns, setExtraTurns] = useState<Record<number, number>>({});
 
   // Sync gamble states if players are added/removed or config changes
   React.useEffect(() => {
@@ -149,6 +148,9 @@ export default function LocalDraft() {
   // Triggers for full-screen transition overlays
   const [activeOverlay, setActiveOverlay] = useState<'ban' | 'clash' | 'startToBan' | null>(null);
 
+  const isVowEmpowered = (draft: DraftSelection) =>
+    draft.specialPower1 === 'binding-vow' || draft.specialPower2 === 'binding-vow';
+
   const validateDraft = (draft: DraftSelection) => {
     const newDraft = { ...draft };
     statsList.forEach((s) => {
@@ -176,6 +178,14 @@ export default function LocalDraft() {
         }
       }
     });
+    // The pact slot only accepts vow ids — scrub anything else (e.g. a
+    // special-power id written by an older build or a stale saved draft).
+    if (
+      newDraft.bindingVow &&
+      (!bindingVows.some((v) => v.id === newDraft.bindingVow) || !isVowEmpowered(newDraft))
+    ) {
+      newDraft.bindingVow = null;
+    }
     return newDraft as DraftSelection;
   };
 
@@ -259,12 +269,13 @@ export default function LocalDraft() {
     if (isLucky && currentState.remainingLucky <= 0) return;
 
     const draft = players[playerIndex];
-    const category = stat === 'bindingVow' ? 'bindingVow' : statCategoryMap[stat] || 'character';
+    const category = statCategoryMap[stat] || 'character';
 
-    let available: any =
-      stat === 'bindingVow'
+    let available: any = isVow
+      ? isVowEmpowered(draft)
         ? bindingVows
-        : getAvailableEntities(draft[stat], category as string, draft);
+        : []
+      : getAvailableEntities(draft[stat], category as string, draft);
 
     if (stat === 'tool') {
       available = getAvailableEntities(draft[stat], 'tool', draft);
@@ -319,26 +330,18 @@ export default function LocalDraft() {
     }
     setPlayers(newPlayers);
 
-    // Track active stat for the turn
-    if (!activeRollingStat) {
+    // Track active stat for the turn — vow rolls are free actions that don't
+    // begin (or end) the player's stat roll.
+    if (!activeRollingStat && !isVow) {
       setActiveRollingStat(stat);
-    }
-
-    // Handle extra turn if Binding Vow is picked
-    if (stat === 'bindingVow' && randomEntity.id) {
-      setExtraTurns((prev) => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
-      handleFinishGambleTurn(); // Advance turn immediately after picking a vow
     }
   };
 
+  const currentTurnPlayerRef = useRef(currentTurnPlayer);
+  currentTurnPlayerRef.current = currentTurnPlayer;
+
   const handleFinishGambleTurn = () => {
     setActiveRollingStat(null);
-
-    if (extraTurns[currentTurnPlayer] > 0) {
-      setExtraTurns((prev) => ({ ...prev, [currentTurnPlayer]: prev[currentTurnPlayer] - 1 }));
-      // Player gets another turn, so currentTurnPlayer stays the same
-      return;
-    }
 
     let nextPlayer = (currentTurnPlayer + 1) % players.length;
     let attempts = 0;
@@ -395,8 +398,8 @@ export default function LocalDraft() {
   const requiredStats = statsList.filter((s) => s !== 'bindingVow');
 
   const getGamblePool = (playerIndex: number, stat: string): any[] => {
-    if (stat === 'bindingVow') return bindingVows as any[];
     const draft = players[playerIndex];
+    if (stat === 'bindingVow') return isVowEmpowered(draft) ? (bindingVows as any[]) : [];
     const category = statCategoryMap[stat] || 'character';
     return getAvailableEntities(draft[stat], category, draft);
   };
@@ -441,6 +444,14 @@ export default function LocalDraft() {
     newPlayers.forEach((draft) => {
       statsList.forEach((stat) => {
         if (!draft[stat]) {
+          if (stat === 'bindingVow') {
+            // Vow slot: optional; fill with a random pact only when empowered.
+            if (isVowEmpowered(draft)) {
+              const vow = bindingVows[Math.floor(Math.random() * bindingVows.length)];
+              draft[stat] = vow.id;
+            }
+            return;
+          }
           const category = statCategoryMap[stat] || 'character';
           const available = characters.filter((entity) => {
             if (entity.category !== category) return false;
@@ -510,6 +521,19 @@ export default function LocalDraft() {
     if (state) {
       setPlayers(state.players.map((p) => ({ ...p })));
       setBans(state.bans.map((b) => [...b]));
+      // Loaded picks aren't tied to prior roll counts — reset budgets.
+      if (draftMode === 'gamble') {
+        const reset: Record<number, GambleState> = {};
+        state.players.forEach((_, i) => {
+          reset[i] = {
+            remainingTotal: gambleConfig.totalRolls,
+            remainingLucky: gambleConfig.luckyRolls,
+            statRolls: {},
+          };
+        });
+        setGambleStates(reset);
+        setActiveRollingStat(null);
+      }
     }
     setIsSavedDraftsOpen(false);
   };
@@ -526,6 +550,9 @@ export default function LocalDraft() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30 relative overflow-x-hidden flex flex-col">
+      <>
+        <title>Local Draft | JJK Stat Clash</title>
+      </>
       {/* Atmospheric Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(220,38,38,0.08)_0%,transparent_50%)]"></div>
@@ -1190,22 +1217,40 @@ export default function LocalDraft() {
                   isActive={gameSettings.timerEnabled && draftPhase === 'drafting'}
                   duration={gameSettings.timerDuration}
                   onTimeUp={() => {
-                    const emptyPlayer = players.findIndex((p) =>
-                      statsList.some((s) => p[s] === null)
-                    );
-                    if (emptyPlayer !== -1) {
-                      const emptyStat = statsList.find((s) => players[emptyPlayer][s] === null);
-                      if (emptyStat) {
-                        const category = statCategoryMap[emptyStat] || 'character';
-                        const available = characters.filter(
-                          (e) =>
-                            e.category === category &&
-                            !Object.values(players[emptyPlayer]).includes(e.id)
-                        );
-                        if (available.length > 0) {
-                          handleSelect(emptyPlayer, emptyStat, available[0].id);
-                        }
+                    if (draftMode === 'gamble') {
+                      // Timeout belongs to the active roller — pick from the
+                      // legal roll pool, not the first player with empty slots.
+                      if (activeRollingStat) {
+                        handleFinishGambleTurn();
+                        return;
                       }
+                      const rollable = getRollableStats(currentTurnPlayer);
+                      if (rollable.length === 0) return;
+                      const stat = rollable[Math.floor(Math.random() * rollable.length)];
+                      const pool = getGamblePool(currentTurnPlayer, stat);
+                      if (pool.length > 0) {
+                        handleGambleRoll(currentTurnPlayer, stat, false);
+                        // Auto-rolls still finish the turn — unless the player
+                        // already ended it manually in the meantime.
+                        setTimeout(() => {
+                          if (currentTurnPlayerRef.current === currentTurnPlayer) {
+                            handleFinishGambleTurn();
+                          }
+                        }, 500);
+                      }
+                      return;
+                    }
+                    const emptyPlayer = players.findIndex((_, i) => getFillableStats(i).length > 0);
+                    if (emptyPlayer === -1) return;
+                    const emptyStat = getFillableStats(emptyPlayer)[0];
+                    const category = statCategoryMap[emptyStat] || 'character';
+                    const available = getAvailableEntities(null, category, players[emptyPlayer]);
+                    if (available.length > 0) {
+                      handleSelect(
+                        emptyPlayer,
+                        emptyStat,
+                        available[Math.floor(Math.random() * available.length)].id
+                      );
                     }
                   }}
                 />
@@ -1244,10 +1289,13 @@ export default function LocalDraft() {
                 roundWins={roundWins}
                 isMultiplayer={false}
                 onPlayAgain={() => {
-                  setPlayers([emptyDraft(), emptyDraft()]);
-                  setBans([[], []]);
+                  // Preserve player count + names — previously hardcoded to 2.
+                  setPlayers(
+                    players.map((p) => ({ ...emptyDraft(), playerName: p.playerName || null }))
+                  );
+                  setBans(players.map(() => []));
                   setDraftPhase('start');
-                  setRoundWins([0, 0]);
+                  setRoundWins(players.map(() => 0));
                   setMatchHistory([]);
                   if (draftMode === 'gamble') {
                     const resetGambleStates: Record<number, GambleState> = {};

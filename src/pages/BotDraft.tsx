@@ -47,7 +47,6 @@ import {
   deleteDraft,
   SavedDraft,
 } from '../utils/draftStorage';
-import { Helmet } from 'react-helmet-async';
 
 const TURN_TIME_SECONDS = 30;
 
@@ -90,7 +89,6 @@ export default function BotDraft() {
   // Turn-based State
   const [activePlayer, setActivePlayer] = useState<number>(0);
   const [activeRollingStat, setActiveRollingStat] = useState<string | null>(null);
-  const [extraTurns, setExtraTurns] = useState<Record<number, number>>({});
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIME_SECONDS);
   const [activeOverlay, setActiveOverlay] = useState<
     | 'ban'
@@ -116,9 +114,12 @@ export default function BotDraft() {
 
   const requiredStats = statsList.filter((s) => s !== 'bindingVow');
 
+  const isVowEmpowered = (draft: DraftSelection) =>
+    draft.specialPower1 === 'binding-vow' || draft.specialPower2 === 'binding-vow';
+
   const getGamblePool = (playerIndex: number, stat: string): any[] => {
-    if (stat === 'bindingVow') return bindingVows as any[];
     const draft = players[playerIndex];
+    if (stat === 'bindingVow') return isVowEmpowered(draft) ? (bindingVows as any[]) : [];
     const category = statCategoryMap[stat] || 'character';
     return getAvailableEntities(draft[stat], category, draft);
   };
@@ -267,9 +268,22 @@ export default function BotDraft() {
           handleFinishGambleTurn();
           return;
         }
+        // Free action: bind a pact first if empowered — it never ends the turn.
+        if (!players[1].bindingVow && isVowEmpowered(players[1])) {
+          const vowPool = getGamblePool(1, 'bindingVow');
+          if (vowPool.length > 0) {
+            const vow = vowPool[Math.floor(Math.random() * vowPool.length)];
+            const vowPlayers = [...players];
+            vowPlayers[1] = { ...vowPlayers[1], bindingVow: vow.id };
+            vowPlayers[1] = validateDraft(vowPlayers[1]);
+            setPlayers(vowPlayers);
+            return; // players-change re-fires the turn effect — bot keeps rolling
+          }
+        }
         const rollableStats = emptyStats.filter(
           (s) =>
-            (s === 'bindingVow' || currentState.remainingTotal > 0) &&
+            s !== 'bindingVow' &&
+            currentState.remainingTotal > 0 &&
             (currentState.statRolls[s] || 0) < gambleConfig.rollsPerStat &&
             getGamblePool(1, s).length > 0
         );
@@ -278,8 +292,7 @@ export default function BotDraft() {
           return;
         }
         const statToRoll = rollableStats[Math.floor(Math.random() * rollableStats.length)];
-        const category =
-          statToRoll === 'bindingVow' ? 'bindingVow' : statCategoryMap[statToRoll] || 'character';
+        const category = statCategoryMap[statToRoll] || 'character';
 
         let available = getGamblePool(1, statToRoll);
 
@@ -308,10 +321,7 @@ export default function BotDraft() {
           const newGambleStates = { ...gambleStates };
           newGambleStates[1] = {
             ...currentState,
-            remainingTotal:
-              statToRoll === 'bindingVow'
-                ? currentState.remainingTotal
-                : currentState.remainingTotal - numRolls,
+            remainingTotal: currentState.remainingTotal - numRolls,
             statRolls: {
               ...currentState.statRolls,
               [statToRoll]: (currentState.statRolls[statToRoll] || 0) + 1,
@@ -385,7 +395,7 @@ export default function BotDraft() {
     if ((currentState.statRolls[stat] || 0) >= gambleConfig.rollsPerStat) return;
     if (isLucky && currentState.remainingLucky <= 0) return;
 
-    const category = stat === 'bindingVow' ? 'bindingVow' : statCategoryMap[stat] || 'character';
+    const category = statCategoryMap[stat] || 'character';
 
     let available = getGamblePool(playerIndex, stat);
 
@@ -432,25 +442,14 @@ export default function BotDraft() {
     newPlayers[playerIndex] = validateDraft(newPlayers[playerIndex]);
     setPlayers(newPlayers);
 
-    if (!activeRollingStat) {
+    // Vow rolls are free actions — they don't begin (or end) the stat roll.
+    if (!activeRollingStat && !isVow) {
       setActiveRollingStat(stat);
-    }
-
-    if (stat === 'bindingVow' && randomEntity.id) {
-      setExtraTurns((prev) => ({ ...prev, [playerIndex]: (prev[playerIndex] || 0) + 1 }));
-      handleFinishGambleTurn();
     }
   };
 
   const handleFinishGambleTurn = () => {
     setActiveRollingStat(null);
-
-    if (extraTurns[activePlayer] > 0) {
-      setExtraTurns((prev) => ({ ...prev, [activePlayer]: prev[activePlayer] - 1 }));
-      setTimeLeft(TURN_TIME_SECONDS);
-      return;
-    }
-
     passTurn();
   };
 
@@ -509,6 +508,13 @@ export default function BotDraft() {
         }
       }
     });
+    // The pact slot only accepts vow ids — scrub anything else.
+    if (
+      newDraft.bindingVow &&
+      (!bindingVows.some((v) => v.id === newDraft.bindingVow) || !isVowEmpowered(newDraft))
+    ) {
+      newDraft.bindingVow = null;
+    }
     return newDraft as DraftSelection;
   };
 
@@ -523,7 +529,8 @@ export default function BotDraft() {
     const updatedDraft = { ...newPlayers[playerIndex], [stat]: entityId || null };
     newPlayers[playerIndex] = validateDraft(updatedDraft);
     setPlayers(newPlayers);
-    passTurn();
+    // Binding a pact is a free action — it doesn't consume the turn.
+    if (stat !== 'bindingVow') passTurn();
   };
 
   function getAvailableEntities(
@@ -557,9 +564,9 @@ export default function BotDraft() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden flex flex-col items-center pb-20">
-      <Helmet>
+      <>
         <title>Vs Bot | JJK Stat Clash</title>
-      </Helmet>
+      </>
 
       {/* Background elements common to all phases */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1)_0%,transparent_50%)] pointer-events-none z-0"></div>
