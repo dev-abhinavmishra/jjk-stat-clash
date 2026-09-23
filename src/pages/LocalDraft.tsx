@@ -337,6 +337,9 @@ export default function LocalDraft() {
     }
   };
 
+  const currentTurnPlayerRef = useRef(currentTurnPlayer);
+  currentTurnPlayerRef.current = currentTurnPlayer;
+
   const handleFinishGambleTurn = () => {
     setActiveRollingStat(null);
 
@@ -518,6 +521,19 @@ export default function LocalDraft() {
     if (state) {
       setPlayers(state.players.map((p) => ({ ...p })));
       setBans(state.bans.map((b) => [...b]));
+      // Loaded picks aren't tied to prior roll counts — reset budgets.
+      if (draftMode === 'gamble') {
+        const reset: Record<number, GambleState> = {};
+        state.players.forEach((_, i) => {
+          reset[i] = {
+            remainingTotal: gambleConfig.totalRolls,
+            remainingLucky: gambleConfig.luckyRolls,
+            statRolls: {},
+          };
+        });
+        setGambleStates(reset);
+        setActiveRollingStat(null);
+      }
     }
     setIsSavedDraftsOpen(false);
   };
@@ -1201,22 +1217,40 @@ export default function LocalDraft() {
                   isActive={gameSettings.timerEnabled && draftPhase === 'drafting'}
                   duration={gameSettings.timerDuration}
                   onTimeUp={() => {
-                    const emptyPlayer = players.findIndex((p) =>
-                      requiredStats.some((s) => p[s] === null)
-                    );
-                    if (emptyPlayer !== -1) {
-                      const emptyStat = requiredStats.find((s) => players[emptyPlayer][s] === null);
-                      if (emptyStat) {
-                        const category = statCategoryMap[emptyStat] || 'character';
-                        const available = characters.filter(
-                          (e) =>
-                            e.category === category &&
-                            !Object.values(players[emptyPlayer]).includes(e.id)
-                        );
-                        if (available.length > 0) {
-                          handleSelect(emptyPlayer, emptyStat, available[0].id);
-                        }
+                    if (draftMode === 'gamble') {
+                      // Timeout belongs to the active roller — pick from the
+                      // legal roll pool, not the first player with empty slots.
+                      if (activeRollingStat) {
+                        handleFinishGambleTurn();
+                        return;
                       }
+                      const rollable = getRollableStats(currentTurnPlayer);
+                      if (rollable.length === 0) return;
+                      const stat = rollable[Math.floor(Math.random() * rollable.length)];
+                      const pool = getGamblePool(currentTurnPlayer, stat);
+                      if (pool.length > 0) {
+                        handleGambleRoll(currentTurnPlayer, stat, false);
+                        // Auto-rolls still finish the turn — unless the player
+                        // already ended it manually in the meantime.
+                        setTimeout(() => {
+                          if (currentTurnPlayerRef.current === currentTurnPlayer) {
+                            handleFinishGambleTurn();
+                          }
+                        }, 500);
+                      }
+                      return;
+                    }
+                    const emptyPlayer = players.findIndex((_, i) => getFillableStats(i).length > 0);
+                    if (emptyPlayer === -1) return;
+                    const emptyStat = getFillableStats(emptyPlayer)[0];
+                    const category = statCategoryMap[emptyStat] || 'character';
+                    const available = getAvailableEntities(null, category, players[emptyPlayer]);
+                    if (available.length > 0) {
+                      handleSelect(
+                        emptyPlayer,
+                        emptyStat,
+                        available[Math.floor(Math.random() * available.length)].id
+                      );
                     }
                   }}
                 />
@@ -1255,10 +1289,13 @@ export default function LocalDraft() {
                 roundWins={roundWins}
                 isMultiplayer={false}
                 onPlayAgain={() => {
-                  setPlayers([emptyDraft(), emptyDraft()]);
-                  setBans([[], []]);
+                  // Preserve player count + names — previously hardcoded to 2.
+                  setPlayers(
+                    players.map((p) => ({ ...emptyDraft(), playerName: p.playerName || null }))
+                  );
+                  setBans(players.map(() => []));
                   setDraftPhase('start');
-                  setRoundWins([0, 0]);
+                  setRoundWins(players.map(() => 0));
                   setMatchHistory([]);
                   if (draftMode === 'gamble') {
                     const resetGambleStates: Record<number, GambleState> = {};

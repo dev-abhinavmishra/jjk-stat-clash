@@ -45,7 +45,37 @@ export default class DraftServer implements PartyServer {
     const banned: string[] = this.state.bans.flat().filter(Boolean);
     if (banned.includes(entityId)) return false;
     const category = (statCategoryMap as Record<string, string>)[stat] || 'character';
-    return entity.category === category;
+    if (entity.category !== category) return false;
+
+    // Entities are unique across every draft except 'binding-vow'. Re-rolling
+    // the same slot is still allowed (draft[stat] may already hold the id).
+    if (entityId !== 'binding-vow') {
+      const heldElsewhere = this.state.players.some((p: any) =>
+        Object.entries(p.draft).some(
+          ([s, id]) => id === entityId && !(pIndex === this.state.players.indexOf(p) && s === stat)
+        )
+      );
+      if (heldElsewhere) return false;
+    }
+
+    if ('prerequisite' in entity && entity.prerequisite) {
+      if (!Object.values(draft).includes(entity.prerequisite)) return false;
+    }
+
+    if (entityId === 'sukunas-fingers') {
+      const hasVessel = Object.values(draft).some((id) => {
+        if (!id) return false;
+        if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id as string)) return true;
+        const char = characters.find((c) => c.id === id);
+        return !!(
+          char?.loreDescription &&
+          (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+        );
+      });
+      if (!hasVessel) return false;
+    }
+
+    return true;
   }
 
   onRequest(req: any): any {
@@ -196,9 +226,27 @@ export default class DraftServer implements PartyServer {
       if (!this.isLegalSelection(pIndex, data.stat, data.entityId)) return;
       this.state.players[pIndex].draft[data.stat] = data.entityId;
 
-      // Check for extra turn from Binding Vow
-      if (data.stat === 'bindingVow' && data.entityId) {
-        this.state.extraTurns[sender.id] = (this.state.extraTurns[sender.id] || 0) + 1;
+      // Sukuna's Fingers must stay wielded by a vessel — if this pick removed
+      // the last vessel, the fingers come off server-side too (the client's
+      // null-clear message is not a legal selection).
+      const draft = this.state.players[pIndex].draft;
+      if (draft.tool === 'sukunas-fingers' && data.stat !== 'tool') {
+        const hasVessel = Object.values(draft).some((id: any) => {
+          if (!id) return false;
+          if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id as string)) return true;
+          const char = characters.find((c) => c.id === id);
+          return !!(
+            char?.loreDescription &&
+            (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+          );
+        });
+        if (!hasVessel) draft.tool = null;
+      }
+
+      // The vow pact is a free action — it never consumes or advances a turn.
+      if (data.stat === 'bindingVow') {
+        this.broadcastState();
+        return;
       }
       this.advanceTurn();
     }
@@ -246,14 +294,10 @@ export default class DraftServer implements PartyServer {
       };
       this.state.players[pIndex].draft[stat] = data.entityId;
 
-      // Special case: if they roll a Binding Vow, they get an extra turn but it ends this current "roll turn"
-      if (stat === 'bindingVow' && data.entityId) {
-        this.state.extraTurns[sender.id] = (this.state.extraTurns[sender.id] || 0) + 1;
-        this.state.currentRollingStat = null;
-        this.advanceTurn();
-      } else {
-        this.broadcastState();
-      }
+      // A vow roll is a free action — no roll consumed (already not decremented
+      // above) and no turn advance.
+      if (stat === 'bindingVow') this.state.currentRollingStat = null;
+      this.broadcastState();
     }
 
     if (
@@ -427,6 +471,52 @@ export default class DraftServer implements PartyServer {
     this.startTimer();
   }
 
+  private pickEntityFor(player: any, category: string): string | null {
+    const allBans = this.state.bans.flat().filter(Boolean);
+    const takenIds = new Set<string>();
+    this.state.players.forEach((p: any) => {
+      Object.values(p.draft).forEach((v: any) => {
+        if (typeof v === 'string') takenIds.add(v);
+      });
+    });
+
+    const pool = characters.filter((e: any) => {
+      if (e.category !== category) return false;
+      if (allBans.includes(e.id)) return false;
+      if (e.id !== 'binding-vow' && takenIds.has(e.id)) return false;
+      if ('prerequisite' in e && e.prerequisite) {
+        if (!Object.values(player.draft).includes(e.prerequisite)) return false;
+      }
+      if (e.id === 'sukunas-fingers') {
+        const hasVessel = Object.values(player.draft).some((id: any) => {
+          if (!id) return false;
+          if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id as string)) return true;
+          const char = characters.find((c) => c.id === id);
+          return !!(
+            char?.loreDescription &&
+            (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+          );
+        });
+        if (!hasVessel) return false;
+      }
+      return true;
+    });
+
+    // Last resort: relax uniqueness/prereq rules but never bans or category.
+    const fallback =
+      pool.length > 0
+        ? pool
+        : characters.filter((e: any) => e.category === category && !allBans.includes(e.id));
+    if (fallback.length === 0) return null;
+
+    let pick = fallback[Math.floor(Math.random() * fallback.length)];
+    if (category === 'character' && Math.random() < 0.3) {
+      const human = fallback.find((e: any) => e.id === 'human');
+      if (human) pick = human;
+    }
+    return pick.id;
+  }
+
   autoPickForActivePlayer() {
     // Stop the timer immediately to prevent double-fires
     if (this.timerInterval) clearInterval(this.timerInterval);
@@ -450,238 +540,6 @@ export default class DraftServer implements PartyServer {
       'iq',
     ];
 
-    // NOTE: These arrays must be kept in sync with src/data/characters.ts
-    // When adding new entities, update both files to prevent auto-pick from selecting invalid entities
-    const categoryToIds: Record<string, string[]> = {
-      character: [
-        'gojo',
-        'sukuna',
-        'yuta',
-        'geto',
-        'kenjaku',
-        'yuki',
-        'yuji',
-        'megumi',
-        'nobara',
-        'maki',
-        'toge',
-        'panda',
-        'hakari',
-        'kirara',
-        'todo',
-        'kamo',
-        'momo',
-        'mai',
-        'miwa',
-        'mechamaru',
-        'nanami',
-        'yaga',
-        'shoko',
-        'utahime',
-        'gakuganji',
-        'kusakabe',
-        'ino',
-        'meimei',
-        'uiui',
-        'ijichi',
-        'nitta-akari',
-        'nitta-arata',
-        'naobito',
-        'naoya',
-        'ogi',
-        'jinichi',
-        'kashimo',
-        'higuruma',
-        'takaba',
-        'ryu',
-        'uro',
-        'kurourushi',
-        'charles',
-        'reggie',
-        'hazenoki',
-        'remi',
-        'angel',
-        'yorozu',
-        'daido',
-        'miyo',
-        'dhruv',
-        'amai',
-        'haba',
-        'hanyu',
-        'mahito',
-        'jogo',
-        'hanami',
-        'dagon',
-        'choso',
-        'eso',
-        'kechizu',
-        'uraume',
-        'toji',
-        'rika',
-        'miguel',
-        'larue',
-        'riko',
-        'kuroi',
-        'haibara',
-        'tengen',
-        'junpei',
-        'juzo',
-        'haruta',
-        'awasaka',
-        'ogami',
-        'saki',
-        'kaito',
-        'kensuke',
-        'dabura',
-        'modulo-yuji',
-        'human',
-      ],
-      tool: [
-        'playful-cloud',
-        'inverted-spear',
-        'split-soul-katana',
-        'executioners-sword',
-        'kamutoke',
-        'hiten',
-        'prison-realm',
-        'slaughter-demon',
-        'dragon-bone',
-        'chain-of-a-thousand-miles',
-        'black-rope',
-        'sukunas-fingers',
-        'sword-of-extermination',
-        'festering-life-sword',
-        'nanamis-blunt-sword',
-        'g-warstaff',
-        'hand-sword',
-        'miwas-katana',
-        'mei-meis-axe',
-        'jet-black-sword',
-      ],
-      domainExpansion: [
-        'unlimited-void',
-        'malevolent-shrine',
-        'modulo-yuji-domain',
-        'authentic-mutual-love',
-        'womb-profusion',
-        'chimera-shadow-garden',
-        'deadly-sentencing',
-        'self-embodiment-of-perfection',
-        'coffin-of-the-iron-mountain',
-        'ceremonial-sea-of-light',
-        'horizon-of-the-captivating-skandha',
-        'threefold-affliction',
-        'time-cell-moon-palace',
-        'idle-death-gamble',
-        'graveyard-domain',
-        'shadow-realm',
-        'empty-barrier',
-      ],
-      cursedTechnique: [
-        'copy',
-        'straw-doll',
-        'mythical-beast-amber',
-        'boogie-woogie',
-        'ratio-technique',
-        'jacobs-ladder',
-        'limitless',
-        'shrine',
-        'ten-shadows',
-        'cursed-spirit-manipulation',
-        'star-rage',
-        'blood-manipulation',
-        'idle-transfiguration',
-        'disaster-flames',
-        'disaster-plants',
-        'disaster-tides',
-        'sky-manipulation',
-        'ice-formation',
-        'creation',
-        'puppet-manipulation',
-        'black-bird-manipulation',
-        'projection-sorcery',
-        'antigravity-system',
-        'miracles',
-        'love-rendezvous',
-        'contract-reproduction',
-        'comedian',
-        'bird-strike',
-        'soul-resonance',
-        'seance-technique',
-        'inverse',
-        'auspicious-beasts',
-      ],
-      shikigami: [
-        'mahoraga',
-        'agito',
-        'judgeman',
-        'nue',
-        'divine-dogs',
-        'rika-shikigami',
-        'garuda',
-        'great-serpent',
-        'demon-dogs',
-        'toad',
-        'max-elephant',
-        'rabbit-escape',
-        'round-deer',
-        'piercing-ox',
-        'moon-dregs',
-        'rainbow-dragon',
-        'kuchisake-onna',
-        'dhruv-giant',
-        'gorilla-core',
-        'triceratops-core',
-        'smallpox-deity',
-        'ganesha-curse',
-        'crows',
-      ],
-      specialPower: [
-        'six-eyes',
-        'rct',
-        'black-flash',
-        'heavenly-restriction',
-        'simple-domain',
-        'falling-blossom-emotion',
-        'hollow-wicker-basket',
-        'domain-amplification',
-        'cursed-energy-trait',
-        'the-bath',
-        'cursed-realm',
-        'death-painting-womb',
-        'cursed-corpse-core',
-        'supreme-martial-arts',
-        'soul-perception',
-        'maximum-output',
-        'new-shadow-style',
-        'curtain-mastery',
-        'soul-info-perception',
-      ],
-    };
-
-    const statCategoryMap: Record<string, string> = {
-      strength: 'character',
-      speed: 'character',
-      durability: 'character',
-      ce: 'character',
-      body: 'character',
-      iq: 'character',
-      ct: 'cursedTechnique',
-      tool: 'tool',
-      specialPower1: 'specialPower',
-      specialPower2: 'specialPower',
-      shikigami: 'shikigami',
-      domainExpansion: 'domainExpansion',
-    };
-
-    const allBans = this.state.bans.flat().filter(Boolean);
-    const takenIds = new Set<string>();
-    this.state.players.forEach((p: any) => {
-      Object.values(p.draft).forEach((v: any) => {
-        if (typeof v === 'string') takenIds.add(v);
-      });
-    });
-
     if (this.state.draftMode === 'gamble') {
       const gState = this.state.gambleStates[player.id];
       const rolledStat = this.state.currentRollingStat;
@@ -697,19 +555,20 @@ export default class DraftServer implements PartyServer {
           this.state.currentRollingStat = null;
           return this.advanceTurn();
         }
-        const statToResolve = emptyStats[Math.floor(Math.random() * emptyStats.length)];
-
-        const category = statCategoryMap[statToResolve];
-        const validIds = categoryToIds[category] || categoryToIds['character'];
-
-        let availableIds = validIds.filter(
-          (id) => !allBans.includes(id) && (id === 'binding-vow' || !takenIds.has(id))
+        // Only roll a stat the player could still legally roll.
+        const rollable = emptyStats.filter(
+          (s) => (gState.statRolls[s] || 0) < this.state.gambleConfig.rollsPerStat
         );
-        if (availableIds.length === 0) availableIds = validIds;
+        if (rollable.length === 0 || gState.remainingTotal <= 0) {
+          this.state.currentRollingStat = null;
+          return this.advanceTurn();
+        }
+        const statToResolve = rollable[Math.floor(Math.random() * rollable.length)];
 
-        let randomId = availableIds[Math.floor(Math.random() * availableIds.length)];
-        if (category === 'character' && Math.random() < 0.3) {
-          if (availableIds.includes('human')) randomId = 'human';
+        const randomId = this.pickEntityFor(player, statCategoryMap[statToResolve]);
+        if (!randomId) {
+          this.state.currentRollingStat = null;
+          return this.advanceTurn();
         }
 
         this.state.gambleStates[player.id] = {
@@ -729,18 +588,8 @@ export default class DraftServer implements PartyServer {
       if (emptyStats.length === 0) return this.advanceTurn();
       const randomStat = emptyStats[Math.floor(Math.random() * emptyStats.length)];
 
-      const category = statCategoryMap[randomStat];
-      const validIds = categoryToIds[category] || categoryToIds['character'];
-
-      let availableIds = validIds.filter(
-        (id) => !allBans.includes(id) && (id === 'binding-vow' || !takenIds.has(id))
-      );
-      if (availableIds.length === 0) availableIds = validIds;
-
-      let randomId = availableIds[Math.floor(Math.random() * availableIds.length)];
-      if (category === 'character' && Math.random() < 0.3) {
-        if (availableIds.includes('human')) randomId = 'human';
-      }
+      const randomId = this.pickEntityFor(player, statCategoryMap[randomStat]);
+      if (!randomId) return this.advanceTurn();
 
       player.draft[randomStat] = randomId;
       this.advanceTurn();

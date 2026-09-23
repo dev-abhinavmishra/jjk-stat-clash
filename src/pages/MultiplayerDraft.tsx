@@ -214,6 +214,19 @@ export default function MultiplayerDraft() {
       if ('prerequisite' in entity && entity.prerequisite) {
         if (!Object.values(draft).includes(entity.prerequisite)) return false;
       }
+      // Sukuna's Fingers needs a vessel (Yuji, Sukuna, Megumi, or a cursed entity).
+      if (entity.id === 'sukunas-fingers') {
+        const hasVessel = Object.values(draft).some((id) => {
+          if (!id) return false;
+          if (['yuji', 'modulo-yuji', 'sukuna', 'megumi'].includes(id)) return true;
+          const char = characters.find((c) => c.id === id);
+          return !!(
+            char?.loreDescription &&
+            (char.loreDescription.includes('Curse') || char.loreDescription.includes('curses'))
+          );
+        });
+        if (!hasVessel) return false;
+      }
       return true;
     });
   };

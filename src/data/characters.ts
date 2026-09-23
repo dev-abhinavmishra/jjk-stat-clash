@@ -2113,7 +2113,7 @@ export const bindingVows = [
   {
     id: 'revealing-hand',
     name: "Revealing One's Hand",
-    description: '-10 Battle IQ, +15% to CT & Special Powers',
+    description: '-10 Battle IQ, +20% to CE, CT & Special Powers',
     loreDescription:
       "A vow that increases the efficacy of one's technique by explaining its mechanics to the opponent.",
     grade: 'Epic',
@@ -2121,7 +2121,7 @@ export const bindingVows = [
   {
     id: 'life-gamble',
     name: 'Life Gamble',
-    description: 'Durability drops to 1, Strength & Speed doubled',
+    description: 'Durability drops to 1, Strength, Speed & Body doubled',
     loreDescription:
       'A desperate pact that sacrifices all defensive cursed energy reinforcement for absolute offensive power.',
     grade: 'Mythic',

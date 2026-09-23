@@ -287,10 +287,6 @@ Try it yourself: https://jjk-stat-clash.vercel.app
       return { baseValue, bonus: -baseValue, total: 0, isBlackFlash: false, isNullified: true };
     }
 
-    if (vow === 'future-sacrifice' && ['ce', 'ct'].includes(statKey)) {
-      return { baseValue, bonus: -baseValue, total: 0, isBlackFlash: false, isNullified: true };
-    }
-
     const draftedEntityIds = Object.values(draft).filter(Boolean) as string[];
     let bonus = 0;
     pairings.forEach((pairing) => {
@@ -379,21 +375,23 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         } else {
           bonus -= 10;
         }
-      } else if (['strength', 'speed', 'durability'].includes(statKey)) {
+      } else if (['strength', 'speed', 'durability', 'body'].includes(statKey)) {
         // Base Overtime bonus
         bonus += 20;
         // Nanami specific late-game scaling
         if (isNanami && isLateGame) {
-          bonus += 30; // Massive spike in Output (Strength/Speed/Durability)
+          bonus += 30; // Massive spike in Output
         }
       }
     } else if (vow === 'heavenly-pact') {
-      if (['strength', 'speed', 'durability'].includes(statKey)) {
+      if (['strength', 'speed', 'durability', 'body'].includes(statKey)) {
         bonus += isHR ? 15 : 40; // If already HR, only add 15 to reach +40 total bonus
       }
     } else if (vow === 'future-sacrifice') {
       if (['strength', 'speed'].includes(statKey)) {
         bonus += 50;
+      } else if (['ce', 'ct'].includes(statKey)) {
+        bonus -= 50;
       }
     } else if (vow === 'open-barrier') {
       if (statKey === 'domainExpansion') {
@@ -439,7 +437,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         name: "Revealing One's Hand",
         entities: [],
         bonusStats: {},
-        description: '-10 IQ, +15% CT/Special',
+        description: '-10 IQ, +20% CE/CT/Special',
       });
     } else if (vow === 'life-gamble') {
       active.push({
@@ -447,7 +445,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         name: 'Life Gamble',
         entities: [],
         bonusStats: {},
-        description: '1 Durability, 2x Strength/Speed',
+        description: '1 Durability, 2x Str/Spd/Body',
       });
     } else if (vow === 'simple-territory') {
       active.push({
