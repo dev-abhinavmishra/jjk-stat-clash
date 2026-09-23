@@ -152,6 +152,7 @@ const statKanji: Record<string, string> = {
   shikigami: '式',
   domainExpansion: '域',
   iq: '智',
+  bindingVow: '誓',
 };
 
 export const getRarityConfig = (entity: any) => {
@@ -606,6 +607,10 @@ export function PlayerCard({
     return activePairings.some((p) => p.entities.includes(entityId));
   };
 
+  const vowEmpowered =
+    draft.specialPower1 === 'binding-vow' || draft.specialPower2 === 'binding-vow';
+  const boundVow = bindingVows.find((v) => v.id === draft.bindingVow);
+
   const formatCategoryName = (cat: string) => {
     if (cat === 'domainExpansion') return 'Domain Expansion';
     if (cat === 'cursedTechnique') return 'Cursed Technique';
@@ -622,7 +627,11 @@ export function PlayerCard({
     }, 1500);
   };
 
-  const emptyRequiredStatsCount = statsList.filter((s) => draft[s] === null).length;
+  // The optional vow slot doesn't count toward the "must have a roll for every
+  // unfilled stat" safeguard — an unfilled pact should never lock re-rolls.
+  const emptyRequiredStatsCount = statsList.filter(
+    (s) => s !== 'bindingVow' && draft[s] === null
+  ).length;
   const requireRollsSafeguard =
     draftMode === 'gamble' && gambleState
       ? gambleState.remainingTotal <= emptyRequiredStatsCount
@@ -704,6 +713,148 @@ export function PlayerCard({
 
       <div className="flex flex-col gap-2">
         {statsList.map((stat) => {
+          if (stat === 'bindingVow') {
+            // The pact slot accepts vow ids only — it is a selector for the
+            // 'Binding Vow' special power, not a generic special-power slot.
+            return (
+              <div
+                key={stat}
+                className={`flex flex-col gap-1 bg-[#111] p-2.5 rounded-lg border ${boundVow ? 'border-yellow-600/50 shadow-inner' : 'border-zinc-800'} transition-all duration-300 relative focus-within:z-50`}
+              >
+                <div className="flex justify-between w-full">
+                  <label
+                    className={`text-[10px] font-mono font-bold uppercase tracking-widest ${boundVow ? 'text-yellow-500' : 'text-zinc-600'}`}
+                  >
+                    {statLabels[stat]}
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    {lockOnSelect && boundVow && (
+                      <span className="text-[9px] font-mono font-black text-green-500 bg-green-500/10 border border-green-500/30 px-1.5 rounded uppercase tracking-tighter">
+                        Locked
+                      </span>
+                    )}
+                    {draftMode === 'gamble' && gambleState && gambleConfig && (
+                      <span className="text-[10px] font-mono font-bold text-yellow-600 uppercase">
+                        {gambleState.statRolls['bindingVow'] || 0}/{gambleConfig.rollsPerStat} Vow
+                        Rolls (Free)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {vowEmpowered ? (
+                  draftMode === 'gamble' ? (
+                    <div className="flex flex-col gap-2 w-full mt-1">
+                      {rollingStats['bindingVow'] ? (
+                        <RollingScrambler
+                          allEntities={bindingVows}
+                          targetId={boundVow?.id || null}
+                          kanji="誓"
+                        />
+                      ) : boundVow ? (
+                        (() => {
+                          const rarity = getRarityConfig(boundVow);
+                          return (
+                            <motion.div
+                              key={boundVow.id}
+                              initial={{ scale: 1.1, opacity: 0, y: -10, filter: 'brightness(3)' }}
+                              animate={{ scale: 1, opacity: 1, y: 0, filter: 'brightness(1)' }}
+                              transition={{ type: 'spring', damping: 10, stiffness: 100 }}
+                              className={`w-full bg-black ${rarity.bg} border ${rarity.border} ${rarity.effects} text-white p-1 pl-10 pr-2 rounded-md flex items-center relative transition-colors h-[42px] overflow-hidden group`}
+                            >
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: [1, 1.5, 0], opacity: [1, 0, 0] }}
+                                transition={{ duration: 0.6 }}
+                                className={`absolute inset-0 rounded-md border-2 ${rarity.border} pointer-events-none`}
+                              />
+                              <span
+                                className={`absolute left-3 font-black text-xl ${rarity.color} font-display drop-shadow-md`}
+                              >
+                                誓
+                              </span>
+                              <div className="flex flex-col truncate ml-1 leading-tight justify-center h-full w-full">
+                                <span className="truncate font-bold tracking-wide text-[14px] text-zinc-200">
+                                  {boundVow.name}
+                                </span>
+                                <div className="flex justify-between items-center w-full">
+                                  <span
+                                    className={`text-[9px] ${rarity.color} font-black uppercase tracking-[0.1em] opacity-90`}
+                                  >
+                                    {rarity.label}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] ${rarity.badgeTheme} px-1.5 rounded-sm font-black tracking-widest`}
+                                  >
+                                    {rarity.tier} RANK
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })()
+                      ) : (
+                        <div className="w-full bg-[#0a0a0a] border border-dashed border-zinc-700 text-zinc-500 p-2 text-center rounded-md text-sm font-medium italic h-[42px] flex items-center justify-center">
+                          Awaiting Pact...
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          disabled={
+                            !isTurn ||
+                            (activeRollingStat && activeRollingStat !== 'bindingVow') ||
+                            rollingStats['bindingVow'] ||
+                            !gambleConfig ||
+                            !gambleState ||
+                            (gambleState.statRolls['bindingVow'] || 0) >= gambleConfig.rollsPerStat
+                          }
+                          onClick={() => handleRollClick('bindingVow', false)}
+                          className={`flex-1 ${isTurn && (!activeRollingStat || activeRollingStat === 'bindingVow') ? 'bg-yellow-950/40 hover:bg-yellow-900/60 border-yellow-800/40' : 'bg-zinc-900/50 text-zinc-700 border-transparent'} border disabled:cursor-not-allowed text-yellow-500 font-black text-xs py-2 rounded uppercase tracking-[0.2em] transition-all shadow-[0_0_10px_rgba(234,179,8,0.1)] active:scale-95`}
+                        >
+                          Soul Roll
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      value={boundVow?.id || ''}
+                      options={bindingVows.map((v) => ({
+                        value: v.id,
+                        label: v.name,
+                        loreDescription: v.loreDescription,
+                        grade: v.grade,
+                        description: v.description,
+                      }))}
+                      onChange={(val: string) => onSelect('bindingVow', val)}
+                      placeholder="None"
+                      kanji="誓"
+                      colorTheme={{
+                        text: 'text-yellow-500',
+                        border: 'border-yellow-600/50',
+                        shadow: '',
+                        glow: 'shadow-[0_0_15px_rgba(234,179,8,0.2)]',
+                        bg: '',
+                      }}
+                      isSynergyActive={false}
+                      isBindingVow={true}
+                      disabled={lockOnSelect && !!boundVow}
+                    />
+                  )
+                ) : (
+                  <div className="w-full bg-[#0a0a0a] border border-zinc-800/50 text-zinc-600 p-2 pl-10 rounded-md text-sm flex items-center justify-between cursor-not-allowed relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] pointer-events-none"></div>
+                    <span className="absolute left-3 font-black text-lg text-zinc-800 font-display">
+                      誓
+                    </span>
+                    <span className="truncate font-medium italic text-zinc-600 text-xs">
+                      Requires 'Binding Vow' Special Power
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const currentId = draft[stat];
           const category = statCategoryMap[stat];
           const available = getAvailableEntities(currentId, category, draft);
@@ -879,139 +1030,40 @@ export function PlayerCard({
           );
         })}
 
-        <div className="flex flex-col gap-1 bg-[#111] p-2.5 rounded-lg border border-zinc-800 mt-2 relative focus-within:z-50">
+        <div className="flex flex-col gap-1 bg-[#111] p-2.5 rounded-lg border border-zinc-800 mt-2 relative">
           <div className="flex justify-between w-full">
             <label className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
-              Binding Vow (Optional)
+              Vow Covenant
             </label>
-            {draftMode === 'gamble' && gambleState && gambleConfig && (
-              <span className="text-[10px] font-mono font-bold text-yellow-600 uppercase">
-                {gambleState.statRolls['bindingVow'] || 0}/{gambleConfig.rollsPerStat} Vow Rolls
-                (Free)
+            {boundVow && (
+              <span className="text-[9px] font-mono font-black text-yellow-500 uppercase tracking-widest">
+                {boundVow.grade}
               </span>
             )}
           </div>
-          {draft.specialPower1 === 'binding-vow' || draft.specialPower2 === 'binding-vow' ? (
-            draftMode === 'gamble' ? (
-              <div className="flex flex-col gap-2 w-full mt-1">
-                {rollingStats['bindingVow'] ? (
-                  <RollingScrambler
-                    allEntities={bindingVows}
-                    targetId={draft.bindingVow}
-                    kanji="誓"
-                  />
-                ) : draft.bindingVow ? (
-                  (() => {
-                    const rarity = getRarityConfig(
-                      bindingVows.find((e) => e.id === draft.bindingVow)
-                    );
-                    return (
-                      <motion.div
-                        key={draft.bindingVow}
-                        initial={{ scale: 1.1, opacity: 0, y: -10, filter: 'brightness(3)' }}
-                        animate={{ scale: 1, opacity: 1, y: 0, filter: 'brightness(1)' }}
-                        transition={{ type: 'spring', damping: 10, stiffness: 100 }}
-                        className={`w-full bg-black ${rarity.bg} border ${rarity.border} ${rarity.effects} text-white p-1 pl-10 pr-2 rounded-md flex items-center relative transition-colors h-[42px] overflow-hidden group`}
-                      >
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: [1, 1.5, 0], opacity: [1, 0, 0] }}
-                          transition={{ duration: 0.6 }}
-                          className={`absolute inset-0 rounded-md border-2 ${rarity.border} pointer-events-none`}
-                        />
-                        <span
-                          className={`absolute left-3 font-black text-xl ${rarity.color} font-display drop-shadow-md`}
-                        >
-                          誓
-                        </span>
-                        <div className="flex flex-col truncate ml-1 leading-tight justify-center h-full w-full">
-                          <span className="truncate font-bold tracking-wide text-[14px] text-zinc-200">
-                            {bindingVows.find((e) => e.id === draft.bindingVow)?.name ||
-                              draft.bindingVow}
-                          </span>
-                          <div className="flex justify-between items-center w-full">
-                            <span
-                              className={`text-[9px] ${rarity.color} font-black uppercase tracking-[0.1em] opacity-90`}
-                            >
-                              {rarity.label}
-                            </span>
-                            <span
-                              className={`text-[10px] ${rarity.badgeTheme} px-1.5 rounded-sm font-black tracking-widest`}
-                            >
-                              {rarity.tier} RANK
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })()
-                ) : (
-                  <div className="w-full bg-[#0a0a0a] border border-dashed border-zinc-700 text-zinc-500 p-2 text-center rounded-md text-sm font-medium italic h-[42px] flex items-center justify-center">
-                    Awaiting Vow...
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    disabled={
-                      !isTurn ||
-                      (activeRollingStat && activeRollingStat !== 'bindingVow') ||
-                      rollingStats['bindingVow'] ||
-                      !gambleConfig ||
-                      !gambleState ||
-                      (gambleState.statRolls['bindingVow'] || 0) >= gambleConfig.rollsPerStat
-                    }
-                    onClick={() => handleRollClick('bindingVow', false)}
-                    className={`flex-1 ${isTurn && (!activeRollingStat || activeRollingStat === 'bindingVow') ? 'bg-yellow-950/40 hover:bg-yellow-900/60 border-yellow-800/40' : 'bg-zinc-900/50 text-zinc-700 border-transparent'} border disabled:cursor-not-allowed text-yellow-500 font-black text-xs py-2 rounded uppercase tracking-[0.2em] transition-all shadow-[0_0_10px_rgba(234,179,8,0.1)] active:scale-95`}
-                  >
-                    Soul Roll
-                  </button>
-                  {isTurn && activeRollingStat === 'bindingVow' && (
-                    <motion.button
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      onClick={onFinishGambleTurn}
-                      className="shrink-0 bg-green-600 hover:bg-green-500 text-white p-1.5 rounded transition-colors"
-                    >
-                      <CheckCircle2 size={16} />
-                    </motion.button>
-                  )}
-                </div>
+          {vowEmpowered ? (
+            boundVow ? (
+              <div className="flex flex-col gap-1 py-1">
+                <span className="text-sm font-bold text-yellow-500 font-display tracking-wide">
+                  {boundVow.name}
+                </span>
+                <span className="text-[11px] font-mono text-green-400 uppercase tracking-wide">
+                  {boundVow.description}
+                </span>
+                <span className="text-[10px] text-zinc-500 italic leading-snug mt-0.5">
+                  {boundVow.loreDescription}
+                </span>
               </div>
             ) : (
-              <SearchableSelect
-                value={draft.bindingVow || ''}
-                options={bindingVows.map((v) => ({
-                  value: v.id,
-                  label: v.name,
-                  loreDescription: v.loreDescription,
-                  grade: v.grade,
-                  description: v.description,
-                }))}
-                onChange={(val: string) => onSelect('bindingVow', val)}
-                placeholder="None"
-                kanji="誓"
-                colorTheme={{
-                  text: 'text-yellow-500',
-                  border: 'border-yellow-600/50',
-                  shadow: '',
-                  glow: 'shadow-[0_0_15px_rgba(234,179,8,0.2)]',
-                  bg: '',
-                }}
-                isSynergyActive={false}
-                isBindingVow={true}
-                disabled={lockOnSelect && draft.bindingVow !== null}
-              />
+              <p className="text-[10px] font-mono text-zinc-600 italic leading-snug py-1">
+                No pact bound — draft a pact in the Vow Pact slot above to inscribe its terms here.
+              </p>
             )
           ) : (
-            <div className="w-full bg-[#0a0a0a] border border-zinc-800/50 text-zinc-600 p-2 pl-10 rounded-md text-sm flex items-center justify-between cursor-not-allowed relative overflow-hidden">
-              <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px] pointer-events-none"></div>
-              <span className="absolute left-3 font-black text-lg text-zinc-800 font-display">
-                誓
-              </span>
-              <span className="truncate font-medium italic text-zinc-600 text-xs">
-                Requires 'Binding Vow' Special Power
-              </span>
-            </div>
+            <p className="text-[10px] font-mono text-zinc-600 italic leading-snug py-1">
+              Pacts are sealed covenants — only sorcerers wielding the 'Binding Vow' special power
+              may bind one.
+            </p>
           )}
         </div>
       </div>

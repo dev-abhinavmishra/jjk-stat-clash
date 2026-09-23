@@ -8,7 +8,7 @@ import {
   useMotionValueEvent,
   animate,
 } from 'motion/react';
-import { DraftSelection } from './PlayerCard';
+import { DraftSelection, bindingVows } from './PlayerCard';
 import { characters, statLabels } from '../data/characters';
 
 interface ClashRowProps {
@@ -92,7 +92,9 @@ export function ClashRow({
       >
         {players.map((draft, i) => {
           const entityId = draft[statKey];
-          const entity = characters.find((c) => c.id === entityId);
+          // Pact ids live in bindingVows, not the entity list
+          const entity =
+            characters.find((c) => c.id === entityId) || bindingVows.find((v) => v.id === entityId);
           const { baseValue, bonus, total, isBlackFlash, isNullified } = statData[i];
           const isWinner = total === maxVal && showResult && !isNullified;
           const flavorText = entity && 'flavorText' in entity ? entity.flavorText : null;

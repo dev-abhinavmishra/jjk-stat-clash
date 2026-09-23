@@ -105,7 +105,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
       players.forEach((p, i) => {
         addMatchRecord({
           date: new Date().toISOString(),
-          mode: 'local',
+          mode: isMultiplayer ? 'multiplayer' : 'local',
           playerCount: players.length,
           won: winners.includes(i),
           playerName: p.playerName || `Player ${i + 1}`,
@@ -207,9 +207,8 @@ Try it yourself: https://jjk-stat-clash.vercel.app
     players.forEach((player, playerIndex) => {
       const hasBlackFlashAbility = Object.values(player).includes('black-flash');
 
-      // Scale base chance by body stat if available
-      const charId = player.character;
-      const char = characters.find((c) => c.id === charId);
+      // Scale base chance by body stat of the drafted Body character
+      const char = characters.find((c) => c.id === player.body);
       const bodyStat = (char as any)?.stats?.body || 50;
 
       statsList.forEach((stat, statIndex) => {
@@ -230,8 +229,8 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         }
       });
 
-      // Pity system for Black Flash ability holders
-      if (hasBlackFlashAbility && !flashes.flat().includes(true)) {
+      // Pity system for Black Flash ability holders — scoped to this player
+      if (hasBlackFlashAbility && !flashes.some((row) => row[playerIndex])) {
         const physicalStats = statsList.filter((s) => ['strength', 'body', 'speed'].includes(s));
         const randomStat = physicalStats[Math.floor(seededRandom() * physicalStats.length)];
         const targetIndex = statsList.indexOf(randomStat);
@@ -366,7 +365,7 @@ Try it yourself: https://jjk-stat-clash.vercel.app
         }
       }
     } else if (vow === 'overtime') {
-      const isNanami = draft.character === 'nanami';
+      const isNanami = Object.values(draft).includes('nanami');
       const totalRounds = roundWins.reduce((a, b) => a + b, 0);
       const isLateGame = totalRounds >= 3;
 

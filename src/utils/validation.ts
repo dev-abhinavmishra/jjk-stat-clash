@@ -1,5 +1,8 @@
-import { DraftSelection } from '../components/PlayerCard';
+import { DraftSelection, bindingVows } from '../components/PlayerCard';
 import { characters, statsList } from '../data/characters';
+
+// The vow pact slot is optional — completion checks must not require it.
+const requiredStats = statsList.filter((s) => s !== 'bindingVow');
 
 export interface ValidationError {
   type:
@@ -27,7 +30,7 @@ export const validateDraftCompletion = (players: DraftSelection[]): ValidationRe
   const errors: ValidationError[] = [];
 
   players.forEach((draft, playerIndex) => {
-    statsList.forEach((stat) => {
+    requiredStats.forEach((stat) => {
       if (!draft[stat]) {
         errors.push({
           type: 'empty_slot',
@@ -47,32 +50,34 @@ export const validateDraftCompletion = (players: DraftSelection[]): ValidationRe
 /**
  * Calculates draft progress for UI feedback
  */
-export const calculateDraftProgress = (players: DraftSelection[]): {
+export const calculateDraftProgress = (
+  players: DraftSelection[]
+): {
   totalStats: number;
   filledStats: number;
   completedPlayers: number;
 } => {
-  const totalStats = players.length * statsList.length;
+  const totalStats = players.length * requiredStats.length;
   let filledStats = 0;
   let completedPlayers = 0;
 
   players.forEach((draft) => {
     let filled = 0;
-    statsList.forEach((stat) => {
+    requiredStats.forEach((stat) => {
       if (draft[stat]) filled++;
     });
-    
-    if (filled === statsList.length) {
+
+    if (filled === requiredStats.length) {
       completedPlayers++;
     }
-    
+
     filledStats += filled;
   });
 
   return {
     totalStats,
     filledStats,
-    completedPlayers
+    completedPlayers,
   };
 };
 
@@ -81,10 +86,10 @@ export const calculateDraftProgress = (players: DraftSelection[]): {
  */
 export const validateDraftWithFeedback = (players: DraftSelection[]): ValidationResult => {
   const errors: ValidationError[] = [];
-  
+
   // Check for missing selections
   players.forEach((draft, playerIndex) => {
-    statsList.forEach((stat) => {
+    requiredStats.forEach((stat) => {
       if (!draft[stat]) {
         errors.push({
           type: 'empty_slot',
@@ -97,7 +102,7 @@ export const validateDraftWithFeedback = (players: DraftSelection[]): Validation
 
   // Check for duplicates (except binding vows)
   const selectedIds = new Map<string, number[]>();
-  
+
   players.forEach((draft, playerIndex) => {
     Object.entries(draft).forEach(([stat, entityId]) => {
       if (!entityId || stat === 'bindingVow') return;
@@ -129,7 +134,9 @@ export const validateDraftWithFeedback = (players: DraftSelection[]): Validation
 /**
  * Gets a summary of draft status for UI feedback
  */
-export const getDraftSummary = (players: DraftSelection[]): { 
+export const getDraftSummary = (
+  players: DraftSelection[]
+): {
   totalPlayers: number;
   completedPlayers: number;
   totalStats: number;
@@ -138,22 +145,22 @@ export const getDraftSummary = (players: DraftSelection[]): {
 } => {
   const totalPlayers = players.length;
   let completedPlayers = 0;
-  let totalStats = totalPlayers * statsList.length;
+  let totalStats = totalPlayers * requiredStats.length;
   let filledStats = 0;
   const incompletePlayers: number[] = [];
 
   players.forEach((draft, playerIndex) => {
     let filled = 0;
-    statsList.forEach((stat) => {
+    requiredStats.forEach((stat) => {
       if (draft[stat]) filled++;
     });
-    
-    if (filled === statsList.length) {
+
+    if (filled === requiredStats.length) {
       completedPlayers++;
     } else if (filled > 0) {
       incompletePlayers.push(playerIndex);
     }
-    
+
     filledStats += filled;
   });
 
@@ -162,55 +169,59 @@ export const getDraftSummary = (players: DraftSelection[]): {
     completedPlayers,
     totalStats,
     filledStats,
-    incompletePlayers
+    incompletePlayers,
   };
 };
 
 /**
  * Gets detailed draft status for UI feedback
  */
-export const getDetailedDraftStatus = (players: DraftSelection[]): {
+export const getDetailedDraftStatus = (
+  players: DraftSelection[]
+): {
   incompletePlayers: number[];
   playerStats: Array<{ playerIndex: number; filled: number; total: number }>;
 } => {
   const incompletePlayers: number[] = [];
   const playerStats: Array<{ playerIndex: number; filled: number; total: number }> = [];
-  
+
   players.forEach((draft, playerIndex) => {
     let filled = 0;
-    statsList.forEach((stat) => {
+    requiredStats.forEach((stat) => {
       if (draft[stat]) filled++;
     });
-    
+
     playerStats.push({
       playerIndex,
       filled,
-      total: statsList.length
+      total: requiredStats.length,
     });
-    
-    if (filled < statsList.length) {
+
+    if (filled < requiredStats.length) {
       incompletePlayers.push(playerIndex);
     }
   });
 
   return {
     incompletePlayers,
-    playerStats
+    playerStats,
   };
 };
 
 /**
  * Gets list of specific missing stats for each player
  */
-export const getMissingStatsPerPlayer = (players: DraftSelection[]): Array<{
+export const getMissingStatsPerPlayer = (
+  players: DraftSelection[]
+): Array<{
   playerIndex: number;
   missingStats: string[];
 }> => {
   return players.map((draft, playerIndex) => {
-    const missingStats = statsList.filter(stat => !draft[stat]);
+    const missingStats = requiredStats.filter((stat) => !draft[stat]);
     return {
       playerIndex,
-      missingStats
+      missingStats,
     };
   });
 };
@@ -311,7 +322,7 @@ export const validateDraftEntities = (
   playerIndex: number
 ): ValidationResult => {
   const errors: ValidationError[] = [];
-  const validIds = new Set(characters.map((c) => c.id));
+  const validIds = new Set([...characters.map((c) => c.id), ...bindingVows.map((v) => v.id)]);
 
   Object.entries(draft).forEach(([stat, entityId]) => {
     if (entityId && !validIds.has(entityId)) {
@@ -411,8 +422,9 @@ export const validateEntitySelection = (
 ): ValidationResult => {
   const errors: ValidationError[] = [];
 
-  // Check if entity exists
-  const entity = characters.find((c) => c.id === entityId);
+  // Check if entity exists (pact ids resolve against the vow list)
+  const entity =
+    characters.find((c) => c.id === entityId) || bindingVows.find((v) => v.id === entityId);
   if (!entity) {
     errors.push({
       type: 'invalid_entity',
