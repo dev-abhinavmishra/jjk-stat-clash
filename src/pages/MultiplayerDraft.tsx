@@ -13,7 +13,6 @@ import { CursedConvergenceTransition } from '../components/CursedConvergenceTran
 import { PhaseTransition } from '../components/PhaseTransition';
 import { motion, AnimatePresence } from 'motion/react';
 import { Swords, Ban, Trophy, Clock, Users, Copy, CheckCircle2, Radar } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
 import { SystemProtocol } from '../components/SystemProtocol';
 
 export default function MultiplayerDraft() {
@@ -232,9 +231,9 @@ export default function MultiplayerDraft() {
   if (connectionError && !gameState) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-8 text-center">
-        <Helmet>
+        <>
           <title>Connection Error | JJK Stat Clash</title>
-        </Helmet>
+        </>
         <div className="w-24 h-24 bg-red-500/10 rounded-full flex items-center justify-center mb-8 border border-red-500/50">
           <Clock className="text-red-500 animate-pulse" size={48} />
         </div>
@@ -268,9 +267,9 @@ export default function MultiplayerDraft() {
   if (!gameState) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-yellow-500 font-mono space-y-6">
-        <Helmet>
+        <>
           <title>Synchronizing | {roomId} | JJK Stat Clash</title>
-        </Helmet>
+        </>
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -290,9 +289,9 @@ export default function MultiplayerDraft() {
   if (gameState.draftPhase === 'setup') {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center font-sans relative">
-        <Helmet>
+        <>
           <title>Lobby | {roomId}</title>
-        </Helmet>
+        </>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(234,179,8,0.1)_0%,transparent_50%)] pointer-events-none z-0"></div>
 
         <div className="z-10 flex flex-col items-center max-w-lg w-full px-4">
@@ -496,9 +495,9 @@ export default function MultiplayerDraft() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden">
-      <Helmet>
+      <>
         <title>Clash | {roomId}</title>
-      </Helmet>
+      </>
 
       {gameState.draftPhase === 'drafting' && (
         <div className="w-full bg-[#111] border-b border-zinc-800 p-4 sticky top-0 z-50 flex justify-between items-center px-8">

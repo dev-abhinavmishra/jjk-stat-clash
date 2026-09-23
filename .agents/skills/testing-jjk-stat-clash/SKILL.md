@@ -12,6 +12,12 @@ description: How to run and end-to-end test JJK Stat Clash locally (Vite dev ser
 - Local mode (`/play` → Standard Protocol) needs **no backend**. Ignore Firebase/leaderboard warnings in the console — they are expected offline noise.
 - Console in dev only logs Vite HMR + Vercel Analytics debug lines; any real `error`/`warning` entry is a genuine finding.
 
+## Machine quirks (this Windows box)
+
+- **Always pass `workdir` on `exec` calls** — the default session cwd (`/home/ubuntu`) does not exist on this Windows machine; every shell command without an explicit workdir fails immediately.
+- **Only Microsoft Edge is installed** (no Chrome) — the `browser_console` and `read_dom` computer-tool actions do NOT work. For tab-title assertions use screenshots + `zoom` on the tab bar region; Edge's first-run wizard may also need a one-time click-through.
+- **PartyKit cannot run locally** — `partykit dev` crashes on Miniflare (`MiniflareCoreError: ERR_RUNTIME_FAILURE`), so real multiplayer gameplay (`/play/multiplayer` room joins, synced drafts) is untestable on this box. The draft-room route `/play/multiplayer/draft/:roomId` still renders its loading/error branches without a server (a ~5s no-socket timer flips it to the Connection Error screen) — enough for page-title checks, not gameplay.
+
 ## Local draft flow (manual — no auto-fill button exists)
 
 - `LocalDraft.tsx` has a `handleAutoFill` function but it is **dead code** — there is no auto-fill/random button in the UI. Drafts must be filled manually.
@@ -27,10 +33,20 @@ description: How to run and end-to-end test JJK Stat Clash locally (Vite dev ser
 - Dropdown options near the bottom of the viewport can hide behind the Windows taskbar — scroll the page so the select is mid-screen before opening.
 - Picks are unique per player pair except `binding-vow` (both players may draft it).
 
-## Binding Vow mechanics (needed for the vow ledger row)
+## Binding Vow mechanics (Vow Pact row — current PR design)
 
-- To make the "Binding Vow" stat row resolve as a 0-0 DRAW: draft the **"Binding Vow" entity** (specialPower category) into Special Power 1 or 2 → this unlocks a separate "Binding Vow (Optional)" picker → pick a real vow (e.g. Revealing One's Hand, Life Gamble). Real vow ids are not in `characters`, so `getStatValue` returns 0 → DRAW.
-- Note: the stats map ALSO renders a "Binding Vow" row (a specialPower select bound to the same `draft.bindingVow` field). It stays visually unfilled ("Select Special Power...") even after the vow picker sets the field — cosmetic quirk, doesn't block 13/13.
+- The last stat row (`bindingVow`) is a dedicated **"Vow Pact"** selector with a **"Vow Covenant"** detail panel beneath it — NOT a generic special-power select.
+- **Gating:** the row is locked ("Requires 'Binding Vow' Special Power") until the 'Binding Vow' special-power entity is drafted into Special Power 1 or 2. Unpowered players keep the locked state.
+- The select lists only the 8 vow entities (Revealing One's Hand, Life Gamble, Simple Territory, Overtime, Heavenly Pact, Future Sacrifice, Open Barrier, Sacrificial Limb) — searching a non-vow name (e.g. "gojo") returns "No matches found". Binding a vow writes its name onto the card row; the Covenant panel shows name/grade/effect/lore.
+- The vow slot is **optional** — Finish Draft enables at 12/12 required stats with the vow empty. In the clash ledger the VOW PACT round resolves as a DRAW by design (vow entities carry no statValue); the vow _names_ still render in the clash row ("Open Barrier" vs "-" when the opponent never bound one).
+- **Gamble mode:** a powered player's Vow Pact row shows a "Soul Roll" button + RollingScrambler instead of the select. Soul Roll is a **free action** — it does not end the turn and does not consume the global roll pool (watch the ROLLS counter stay fixed while "N/rollsPerStat VOW ROLLS (FREE)" increments). Re-rolling replaces the bound vow. Soul Roll is disabled while another stat roll is in progress; the turn ends only via a stat roll's green ✓ Lock or the End Turn button.
+
+## Gamble-mode practical notes
+
+- **'binding-vow' cannot be LUCKY-rolled** — the lucky pool is the top ~30% of special powers by statValue and binding-vow (statValue ~108) falls below the cutoff. Fish for it with normal ROLL (~1/21 chance per roll); generous pool config (Rolls/Stat high) gives more attempts.
+- Turn indicator + **End Turn** button render in a row **below the two player cards** (next to the DraftTimer) — scroll to the card bottoms to find it. End Turn is only visible when no stat roll is in progress, and it lets a player pass without rolling (useful to force "last player standing" scenarios).
+- After "Finish Draft" the comparison page's **versus splash is just the header** — the red "INITIATE EXPANSION" button sits mid-page below the CONFIRMED LORE BONDS section. Scroll to it; then "Yes, Expand!" starts the ~13 auto-resolving rounds (~2s each) → WINNER banner + grade cards + ROUND LEDGER.
+- A powered player's bound vow appears as a badge under their name on the versus splash and as a "SYNERGY DETECTED" metric chip.
 
 ## Black flashes
 

@@ -29,7 +29,6 @@ import { ChangelogModal } from '../components/Changelog';
 import { HowToPlayTutorial } from '../components/HowToPlayTutorial';
 import { BanPhase } from '../components/BanPhase';
 import { useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Swords,
@@ -532,9 +531,9 @@ export default function LocalDraft() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30 relative overflow-x-hidden flex flex-col">
-      <Helmet>
+      <>
         <title>Local Draft | JJK Stat Clash</title>
-      </Helmet>
+      </>
       {/* Atmospheric Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(220,38,38,0.08)_0%,transparent_50%)]"></div>

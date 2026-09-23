@@ -47,7 +47,6 @@ import {
   deleteDraft,
   SavedDraft,
 } from '../utils/draftStorage';
-import { Helmet } from 'react-helmet-async';
 
 const TURN_TIME_SECONDS = 30;
 
@@ -552,9 +551,9 @@ export default function BotDraft() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans relative overflow-x-hidden flex flex-col items-center pb-20">
-      <Helmet>
+      <>
         <title>Vs Bot | JJK Stat Clash</title>
-      </Helmet>
+      </>
 
       {/* Background elements common to all phases */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.1)_0%,transparent_50%)] pointer-events-none z-0"></div>
